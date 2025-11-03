@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "lldb",
+      "request": "launch",
+      "args": [],
+      "cwd": "/Users/trishnguyen/Documents/GitHub/Embedded-Capstone-Group-7",
+      "program": "/Users/trishnguyen/Documents/GitHub/Embedded-Capstone-Group-7/build/Debug/outDebug"
+    }
+  ]
+}
