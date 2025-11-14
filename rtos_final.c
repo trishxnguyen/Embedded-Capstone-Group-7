@@ -13,15 +13,15 @@ typedef struct task
 const unsigned int numTasks = 2;
 const unsigned long period = 100;
 const unsigned long periodBlinkLED = 1500;
-const unsigned long periodThreeLED = 500;
+const unsigned long periodFan = 500;
 
 task tasks[2];
 
 enum BL_states {BL0, BL1};
 int BlinkLED (int state);
 
-enum TL_states {TL0, TL1, TL2};
-int ThreeLED (int state);
+enum F_states {F0, F1, F2};
+int Fan (int state);
 
 void TimerISR ()
 {
@@ -43,10 +43,10 @@ int main ()
     tasks[0].period = periodBlinkLED;
     tasks[0].elapsedTime = tasks[0].period;
     tasks[0].Function = &BlinkLED;
-    tasks[1].state = TL0;
-    tasks[1].period = periodThreeLED;
+    tasks[1].state = F0;
+    tasks[1].period = periodFan;
     tasks[1].elapsedTime = tasks[1].period;
-    tasks[1].Function = &ThreeLED;
+    tasks[1].Function = &Fan;
     TimerSet (period);
     TimerOn ();
 
@@ -61,32 +61,35 @@ int BlinkLED (int state)
     switch (state)
     {
         case (BL0):
-            B = B & 0xE0;
+            B = 0x00;
+            if (A1) // schedule queue logic needs
             state = BL1;
         break;
+
         case (BL1):
-            B = B | 0x01;
+            B = 0x01;
+            if (!A1) 
             state = BL0;
         break;
     }
     return state;
 }
 
-int ThreeLED (int state)
+int Fan (int state) // change fan
 {
     switch (state)
     {
-        case (TL0):
+        case (F0):
             B = (B & 0x01) | 0x80;
-            state = TL1;
+            state = F1;
         break;
-        case (TL1):
+        case (F1):
             B = (B & 0x01) | 0x40;
-            state = TL2;
+            state = F2;
         break;
-        case (TL2):
+        case (F2):
             B = (B & 0x01) | 0x20;
-            state = TL0;
+            state = F0;
         break;
     }
     return state;
