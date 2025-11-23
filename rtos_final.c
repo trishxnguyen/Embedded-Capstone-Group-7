@@ -56,6 +56,12 @@ int main ()
 }
 // Task implementations
 
+//Communications Handler
+//Current Sensing
+//Device Scheduler
+//Data Logger
+
+
 int BlinkLED (int state)
 {
     switch (state)
