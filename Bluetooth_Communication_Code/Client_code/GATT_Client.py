@@ -1,4 +1,5 @@
 import asyncio
+#uses bleak python bluetooth library, must be installed
 from bleak import BleakScanner
 from bleak import BleakClient
 #Pico address:

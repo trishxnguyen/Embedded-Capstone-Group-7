@@ -47,7 +47,8 @@ pico_enable_stdio_usb(CurrentSensor 0)
 # Add the standard library to the build
 target_link_libraries(CurrentSensor
         pico_stdlib
-        hardware_adc)
+        hardware_adc
+        pico/stdlib)
 
 # Add the standard include files to the build
 target_include_directories(CurrentSensor PRIVATE
