@@ -117,7 +117,7 @@ static void set_characteristic_current(char value)
         instance->callback_current.context = (void*) instance;
         // sprintf(instance->characteristic_current_value, "%d", value) ;
         sprintf(instance->characteristic_current_value,"%d",value);
-        printf(instance->characteristic_current_value);
+        // printf(instance->characteristic_current_value);
         att_server_register_can_send_now_callback(&instance->callback_current,instance->con_handle);
     }
 }

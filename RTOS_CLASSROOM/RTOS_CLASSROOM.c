@@ -286,14 +286,17 @@ int64_t alarm_callback(alarm_id_t id, __unused void *user_data) {
 short test_cnt = 0;
 bool repeating_timer_callback(__unused struct repeating_timer *t) {
     // printf("Repeat at %lld\n", time_us_64());
-    // led_on = ~led_on;
     test_cnt++;
     if(test_cnt % 1000 == 0)
     {
+        led_on = ~led_on;
+        printf("Led On: %d\n",led_on);
+        set_characteristic_current(led_on);
+
         // printf("\n");
-        printf("One second \'Samples\': %d\n",test_cnt);
-        printf("Current Value: %s\n",service_object.characteristic_current_value);
-        printf("Fan Control: %s\n",service_object.characteristic_fan_ctrl_value);
+        // printf("One second \'Samples\': %d\n",test_cnt);
+        printf("Current Value: %d\n",*service_object.characteristic_current_value);
+        // printf("Fan Control: %s\n",service_object.characteristic_fan_ctrl_value);
         // printf("Light Control: %s\n",service_object.characteristic_lights_ctrl_value);
         // printf("Schedule: %s\n",service_object.characteristic_schedule_value);
         // printf("\n");
