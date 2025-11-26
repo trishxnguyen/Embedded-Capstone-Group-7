@@ -28,7 +28,7 @@ set(PICO_BOARD pico2_w CACHE STRING "Board type")
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
-project(rtos_classroom C CXX ASM)
+project(RTOS_Classroom C CXX ASM)
 
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
@@ -40,16 +40,16 @@ add_executable(rtos_classroom
     Bluetooth_Server.c
     bluetooth_setup.h )
 
-pico_set_program_name(rtos_classroom "rtos_classroom")
-pico_set_program_version(rtos_classroom "0.1")
+pico_set_program_name(RTOS_Classroom "RTOS_Classroom")
+pico_set_program_version(RTOS_Classroom "0.1")
 
 # Modify the below lines to enable/disable output over UART/USB
-pico_enable_stdio_uart(rtos_classroom 0)
-pico_enable_stdio_usb(rtos_classroom 1)
+pico_enable_stdio_uart(RTOS_Classroom 0)
+pico_enable_stdio_usb(RTOS_Classroom 1)
 
 
 # Add any user requested libraries
-target_link_libraries(rtos_classroom 
+target_link_libraries(RTOS_Classroom 
     pico_cyw43_arch_none
     pico_stdlib
     pico_btstack_ble
@@ -59,14 +59,14 @@ target_link_libraries(rtos_classroom
        
     )
 # Add the standard include files to the build
-target_include_directories(rtos_classroom PRIVATE
+target_include_directories(RTOS_Classroom PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
 )
 
 # Add any user requested libraries
-target_link_libraries(rtos_classroom 
+target_link_libraries(RTOS_Classroom 
         
         )
 
-pico_add_extra_outputs(rtos_classroom)
+pico_add_extra_outputs(RTOS_Classroom)
 
