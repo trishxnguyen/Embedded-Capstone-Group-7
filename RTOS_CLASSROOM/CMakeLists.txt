@@ -35,7 +35,10 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(RTOS_CLASSROOM RTOS_CLASSROOM.c )
+add_executable(RTOS_CLASSROOM 
+    RTOS_CLASSROOM.c
+    Bluetooth_Server.c
+    bluetooth_setup.h  )
 
 pico_set_program_name(RTOS_CLASSROOM "RTOS_CLASSROOM")
 pico_set_program_version(RTOS_CLASSROOM "0.1")
@@ -46,7 +49,10 @@ pico_enable_stdio_usb(RTOS_CLASSROOM 0)
 
 # Add the standard library to the build
 target_link_libraries(RTOS_CLASSROOM
-        pico_stdlib)
+        pico_stdlib
+        pico_cyw43_arch_none
+        pico_btstack_ble
+        pico_btstack_cyw43)
 
 # Add the standard include files to the build
 target_include_directories(RTOS_CLASSROOM PRIVATE
