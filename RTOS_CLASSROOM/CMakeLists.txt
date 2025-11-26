@@ -37,15 +37,14 @@ pico_sdk_init()
 
 add_executable(RTOS_CLASSROOM 
     RTOS_CLASSROOM.c
-    Bluetooth_Server.c
-    bluetooth_setup.h  )
+      )
 
 pico_set_program_name(RTOS_CLASSROOM "RTOS_CLASSROOM")
 pico_set_program_version(RTOS_CLASSROOM "0.1")
 
 # Modify the below lines to enable/disable output over UART/USB
 pico_enable_stdio_uart(RTOS_CLASSROOM 0)
-pico_enable_stdio_usb(RTOS_CLASSROOM 0)
+pico_enable_stdio_usb(RTOS_CLASSROOM 1)
 
 # Add the standard library to the build
 target_link_libraries(RTOS_CLASSROOM
@@ -61,4 +60,6 @@ target_include_directories(RTOS_CLASSROOM PRIVATE
 )
 
 pico_add_extra_outputs(RTOS_CLASSROOM)
+# Creating gatt database
+pico_btstack_make_gatt_header(RTOS_CLASSROOM PRIVATE "${CMAKE_CURRENT_LIST_DIR}/my_server.gatt")
 

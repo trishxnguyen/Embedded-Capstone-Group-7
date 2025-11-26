@@ -1,16 +1,16 @@
-
+//Custom Header
+#include "bluetooth_setup.h"
+#include "btstack_config.h"
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "btstack.h"
 #include "pico/cyw43_arch.h"
 #include "pico/btstack_cyw43.h"
 #include "pico/sync.h"
-#include <stdint.h>
-//custom code libraries
-// #include "Bluetooth_Server.c"
-// #include "bluetooth_setup.h"
 
 
+// Pico W devices use a GPIO on the WIFI chip for the LED,
+// so when building for Pico W, CYW43_WL_GPIO_LED_PIN will be defined
 #ifdef CYW43_WL_GPIO_LED_PIN
 #include "pico/cyw43_arch.h"
 #endif
@@ -19,259 +19,359 @@
 #define LED_DELAY_MS 250
 #endif
 
-//HELPER FUNCTIONS-----
-// Perform initialisation of led pin
-int pico_led_init(void) {
-#if defined(PICO_DEFAULT_LED_PIN)
-    // A device like Pico that uses a GPIO for the LED will define PICO_DEFAULT_LED_PIN
-    // so we can use normal GPIO functionality to turn the led on and off
-    gpio_init(PICO_DEFAULT_LED_PIN);
-    gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
-    return PICO_OK;
-#elif defined(CYW43_WL_GPIO_LED_PIN)
-    // For Pico W devices we need to initialise the driver etc
-    return cyw43_arch_init();
-#endif
-}
+#define APP_AD_FLAGS 0x06
 
-// Turn the led on or off
-void pico_set_led(bool led_on) {
-#if defined(PICO_DEFAULT_LED_PIN)
-    // Just set the GPIO on or off
-    gpio_put(PICO_DEFAULT_LED_PIN, led_on);
-#elif defined(CYW43_WL_GPIO_LED_PIN)
-    // Ask the wifi "driver" to set the GPIO on or off
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
-#endif
-}
-//---------
 
-// RTOS final
-// RTOS 4 + refactoring
-// #include "RIMS.h"
-// #include "C:\Users\t1m0t\Documents\GitHub Repositories\ImageProcessing-Project\Embedded-Capstone-Group-7\CurrentSensor.c"
-// sense_current
-unsigned char B;
-typedef struct task
+//----------BLUETOOTH RELATED CODE--------------------
+
+static uint16_t att_read_callback(hci_con_handle_t con_handle, uint16_t attribute_handle, uint16_t offset, uint8_t * buffer, uint16_t buffer_size)
 {
-    int state;
-    unsigned long period;
-    unsigned long elapsedTime;
-    int (*Function) (int);
-} task;
+    UNUSED(con_handle);
+    //Current callback
+    printf("Read Callback");
+    //CURRENT
+    if(attribute_handle == service_object.characteristic_current_handle)
+    {
+        return att_read_callback_handle_blob(service_object.characteristic_current_value, strlen(service_object.characteristic_current_value), offset, buffer, buffer_size);
+    }
+    if(attribute_handle == service_object.characteristic_current_configuration_handle)
+    {
+        return att_read_callback_handle_little_endian_16(service_object.characteristic_current_client_configuration, offset, buffer, buffer_size);
+    }
+    if(attribute_handle == service_object.characteristic_current_user_description_handle)
+    {
+        return att_read_callback_handle_blob(service_object.characteristic_current_user_description,strlen(service_object.characteristic_current_user_description), offset, buffer, buffer_size);
+    }
+    //FAN CONTROL
+    if(attribute_handle == service_object.characteristic_fan_ctrl_handle)
+    {
+        return att_read_callback_handle_blob(service_object.characteristic_fan_ctrl_value, strlen(service_object.characteristic_fan_ctrl_value), offset, buffer, buffer_size);
+    }
+    if(attribute_handle == service_object.characteristic_fan_ctrl_configuration_handle)
+    {
+        return att_read_callback_handle_little_endian_16(service_object.characteristic_fan_ctrl_client_configuration, offset, buffer, buffer_size);
+    }
+    if(attribute_handle == service_object.characteristic_fan_ctrl_user_description_handle)
+    {
+        return att_read_callback_handle_blob(service_object.characteristic_fan_ctrl_user_description,strlen(service_object.characteristic_fan_ctrl_user_description), offset, buffer, buffer_size);
+    }
+    // LIGHT CONTROL
+    if(attribute_handle == service_object.characteristic_lights_ctrl_handle)
+    {
+        return att_read_callback_handle_blob(service_object.characteristic_lights_ctrl_value, strlen(service_object.characteristic_lights_ctrl_value), offset, buffer, buffer_size);
+    }
+    if(attribute_handle == service_object.characteristic_lights_ctrl_configuration_handle)
+    {
+        return att_read_callback_handle_little_endian_16(service_object.characteristic_lights_ctrl_client_configuration, offset, buffer, buffer_size);
+    }
+    if(attribute_handle == service_object.characteristic_lights_ctrl_user_description_handle)
+    {
+        return att_read_callback_handle_blob(service_object.characteristic_lights_ctrl_user_description,strlen(service_object.characteristic_lights_ctrl_user_description), offset, buffer, buffer_size);
+    }
 
-const unsigned int numTasks = 2;
-const unsigned long period = 100;
-const unsigned long periodBlinkLED = 1500;
-const unsigned long periodThreeLED = 500;
+    // SCHEDULE
+    if(attribute_handle == service_object.characteristic_schedule_handle)
+    {
+        return att_read_callback_handle_blob(service_object.characteristic_schedule_value, strlen(service_object.characteristic_schedule_value), offset, buffer, buffer_size);
+    }
+    if(attribute_handle == service_object.characteristic_schedule_configuration_handle)
+    {
+        return att_read_callback_handle_little_endian_16(service_object.characteristic_schedule_client_configuration, offset, buffer, buffer_size);
+    }
+    if(attribute_handle == service_object.characteristic_schedule_user_description_handle)
+    {
+        return att_read_callback_handle_blob(service_object.characteristic_schedule_user_description,strlen(service_object.characteristic_schedule_user_description), offset, buffer, buffer_size);
+    }
 
-task tasks[4];
-
-// BLUETOOTH RELATED STATE VARIABLES and functions
-unsigned char rx_flag       = 0;
-unsigned char tx_flag       = 0;
-unsigned char read_data  = 0;
-unsigned char write_data = 0;
-
-unsigned char read_bluetooth()
-{
-    //
-    //read from characteristics and take actions accordingly:
-    //- READ SCHEDULE THAT CLIENT(LAPTOP) WOULD HAVE WRITTEN AND ASSIGN THE VALUE TO VARIABLE
-    //- READ FAN_CONTROL THAT CLIENT(LAPTOP) WOULD HAVE WRITTEN AND ASSIGN THE VALUE TO VARIABLE
-    //- READ LIGHTS_CONTROL THAT CLIENT(LAPTOP) WOULD HAVE WRITTEN AND ASSIGN THE VALUE TO VARIABLE
-    //This should be done say, every 10 seconds
-
-    return(5);
+    return 0;
 }
-unsigned char write_bluetooth()
+
+
+static int att_write_callback(hci_con_handle_t con_handle, uint16_t attribute_handle, uint16_t transaction_mode, uint16_t offset, uint8_t * buffer, uint16_t buffer_size)
+{
+    UNUSED(transaction_mode);
+    UNUSED(offset);
+    UNUSED(buffer_size);
+    //If current service config is set to NOTIFY
+    if(attribute_handle == ATT_CHARACTERISTIC_3727f058_69dd_4d78_9b6f_9c2ebbb67d44_01_VALUE_HANDLE)
+    {
+        service_object.characteristic_current_client_configuration = little_endian_read_16(buffer,0);
+        service_object.con_handle = con_handle;
+    }
+    if(attribute_handle == service_object.characteristic_current_handle)
+    {
+        custom_service * instance = &service_object;
+        buffer[buffer_size] = 0;
+        memset(service_object.characteristic_current_value, 0, strlen(service_object.characteristic_current_value));
+        memcpy(service_object.characteristic_current_value, buffer, strlen(buffer));
+
+        if(instance->characteristic_current_configuration_handle)
+        {
+            instance->callback_current.callback = &characteristic_current_callback;
+            instance->callback_current.context = (void*) instance;
+            att_server_register_can_send_now_callback(&instance->callback_current, instance->con_handle);
+        }
+
+        //Alert application of bluetooth rx
+
+    }
+    
+
+}
+
+
+static unsigned char characteristic_current_rx[100];
+static unsigned char characteristic_fan_ctrl_tx[100];
+static unsigned char characteristic_lights_ctrl_tx[100];
+static unsigned char characteristic_schedule_tx[100];
+
+
+// static uint8_t adv_data[] = {
+//     // Flags general discoverable
+//     0x02, BLUETOOTH_DATA_TYPE_FLAGS, APP_AD_FLAGS,
+//     // Name
+//     0x17, BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME, 'P', 'i', 'c', 'o', ' ', '0', '0', ':', '0', '0', ':', '0', '0', ':', '0', '0', ':', '0', '0', ':', '0', '0',
+//     0x03, BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS, 0x1a, 0x18,
+// };
+
+int le_notification_enabled;
+hci_con_handle_t con_handle;
+uint16_t current_temp = 50;
+static btstack_timer_source_t heartbeat;
+static btstack_packet_callback_registration_t hci_event_callback_registration;
+
+
+
+static uint8_t adv_data[] = {
+    // Flags general discoverable
+    0x02, BLUETOOTH_DATA_TYPE_FLAGS, APP_AD_FLAGS,
+    // Name
+    0x06, BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME, 'P', 'i', 'c', 'o', 'W',
+    // Custom Service UUID
+    0x03, BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS, 0x10, 0xFF,
+};
+static const uint8_t adv_data_len = sizeof(adv_data);
+
+
+
+static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size)
+{
+    UNUSED(size);
+    UNUSED(channel);
+
+    bd_addr_t local_addr;
+
+    if(packet_type != HCI_EVENT_PACKET) return;
+
+    //retreive information about packet
+
+    unsigned char event_type = hci_event_packet_get_type(packet);
+
+    switch(event_type){
+        case BTSTACK_EVENT_STATE:
+            if(btstack_event_state_get_state(packet) != HCI_STATE_WORKING) return;
+            gap_local_bd_addr(local_addr);
+            printf("BTstack is running on address %s",bd_addr_to_str(local_addr));
+
+            // //setup advertisements
+            unsigned short adv_int_min = 800;
+            unsigned short adv_int_max = 800;
+
+            unsigned char adv_type = 0;
+
+            bd_addr_t null_addr;
+
+            memset(null_addr,0,6);
+            gap_advertisements_set_params(adv_int_min, adv_int_max, adv_type, 0, null_addr, 0x07, 0x00);
+            assert(adv_data_len <= 31); // ble limitation
+            gap_advertisements_set_data(adv_data_len, (uint8_t*) adv_data);
+            gap_advertisements_enable(1);
+            // printf("Sending Advetisement");
+            break;
+        case HCI_EVENT_DISCONNECTION_COMPLETE:
+            // le_notification_enabled = 0;
+            break;
+        case ATT_EVENT_CAN_SEND_NOW:
+            // service_current
+            att_server_notify(service_object.con_handle, service_object.characteristic_current_handle, (uint8_t*)&current_temp, sizeof(current_temp));
+        default:
+            break;
+    }
+}
+unsigned char bluetooth_tx       = 0;
+short current_reading = 0;
+
+
+unsigned char writeCharacteristic()
+{
+    //This should be every 1 milisecond to obtain 1Khz
+
+
+    return(1);
+}
+unsigned char readControlSignals()
 {
     // write to the bluetooth characteristics:
     //- WRITE CURRENT READING
     return(1);
 }
+short readCurrent()
+{
+    current_reading = 5;
+}
 
+// ------ BLUETOOTH RELATED STATE MACHINE INFORMATION
 enum BLE_States { BLE_IDLE, BLE_INIT, BLE_READ_B, BLE_WRITE_B, BLE_ERROR } BLE_State;
 
-void TickFct_BLE_State() {
-   switch(BLE_State) { // Transitions
-      case BLE_INIT:
-         BLE_State = BLE_INIT;
+enum SM1_States { SM1_INIT, SM1_writeChar, SM1_Wait } SM1_State = SM1_INIT;
+int BLE_StateSM (int state);
+
+
+
+int BLE_StateSM(int state) {
+   switch(state) { // Transitions
+      case SM1_INIT:
+         state = SM1_writeChar;
          break;
-         case BLE_IDLE: 
-         if (!rx_flag & !tx_flag) {
-            BLE_State = BLE_IDLE;
+      case SM1_writeChar: 
+         if (!bluetooth_tx) {
+            state = SM1_writeChar;
          }
-         else if (rx_flag & !tx_flag) {
-            BLE_State = BLE_READ_B;
-         }
-         else if (tx_flag & !rx_flag) {
-            BLE_State = BLE_WRITE_B;
-         }
-         else if (rx_flag & tx_flag) {
-            BLE_State = BLE_ERROR;
-         }
-         break;
-      case BLE_READ_B: 
-         if (rx_flag) {
-            BLE_State = BLE_READ_B;
+         else if (bluetooth_tx) {
+            state = SM1_Wait;
          }
          break;
-      case BLE_WRITE_B: 
-         if (tx_flag) {
-            BLE_State = BLE_WRITE_B;
+      case SM1_Wait: 
+         if (bluetooth_tx) {
+            state = SM1_Wait;
          }
-         else if (!tx_flag) {
-            BLE_State = BLE_IDLE;
-         }
-         break;
-      case BLE_ERROR: 
-         if (1) {
-            BLE_State = BLE_INIT;
+         else if (!bluetooth_tx) {
+            state = SM1_writeChar;
          }
          break;
       default:
-         BLE_State = BLE_INIT;
+         state = SM1_INIT;
    } // Transitions
 
-   switch(BLE_State) { // State actions
-      case BLE_IDLE:
-         break;
-      case BLE_INIT:
-         //Turn on Bluetooth Chip
-         rx_flag=0;
-         tx_flag=0;
-         break;
-      case BLE_READ_B:
-         read_data = read_bluetooth();
-         rx_flag = 0;
+   switch(state) { // State actions
+      case SM1_INIT:
+        initilize_bluetooth();
+        break;
+      case SM1_writeChar:
+         writeCharacteristic();
          
          break;
-      case BLE_WRITE_B:
-         write_data = write_bluetooth();
-         tx_flag=0;
-         break;
-      case BLE_ERROR:
-         printf("error");
-         //Turn off Bluetooth Chip
+      case SM1_Wait:
          break;
       default: // ADD default behaviour below
       break;
    } // State actions
-
+   return state;
 }
 
+//END BLUETOOTH RELATED CODE
 
-//---
+//------TIMER RELATED CODE
+volatile bool timer_fired = false;
+char led_on = 0
+int64_t alarm_callback(alarm_id_t id, __unused void *user_data) {
+    printf("Timer %d fired!\n", (int) id);
+    timer_fired = true;
+    led_on = ~led_on;
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
 
-enum BL_states {BL0, BL1};
-int BlinkLED (int state);
-
-enum TL_states {TL0, TL1, TL2};
-int ThreeLED (int state);
-
-void TimerISR ()
-{
-    unsigned char i;
-    for (i = 0; i < numTasks; i++)
-    {
-        if (tasks[i].elapsedTime >= tasks[i].period)
-        {
-        tasks[i].state = tasks[i].Function(tasks[i].state);
-        tasks[i].elapsedTime = 0;
-        }
-        tasks[i].elapsedTime += period;
-    }
+    // Can return a value here in us to fire in the future
+    return 0;
 }
 
-// Task implementations
-
-//Communications Handler
-//Current Sensing
-//Device Scheduler
-//User Input Handler
-
-int BlinkLED (int state)
-{
-    switch (state)
-    {
-        case (BL0):
-            B = B & 0xE0;
-            state = BL1;
-        break;
-        case (BL1):
-            B = B | 0x01;
-            state = BL0;
-        break;
-    }
-    return state;
-}
-
-int ThreeLED (int state)
-{
-    switch (state)
-    {
-        case (TL0):
-            B = (B & 0x01) | 0x80;
-            state = TL1;
-        break;
-        case (TL1):
-            B = (B & 0x01) | 0x40;
-            state = TL2;
-        break;
-        case (TL2):
-            B = (B & 0x01) | 0x20;
-            state = TL0;
-        break;
-    }
-    return state;
-}
-
-int main ()
-{
-    //---RTOS MAIN----
-    // tasks[0].state = BL0;
-    // tasks[0].period = periodBlinkLED;
-    // tasks[0].elapsedTime = tasks[0].period;
-    // tasks[0].Function = &BlinkLED;
-    // tasks[1].state = TL0;
-    // tasks[1].period = periodThreeLED;
-    // tasks[1].elapsedTime = tasks[1].period;
-    // tasks[1].Function = &ThreeLED;
-
-    // // Bluetooth State mMachine Setup
-
-    // TimerSet (period);
-    // TimerOn ();
-
-    // while (1);
-
-    // return 0;
-    //--------------------
-
-    //-----DEMO CODE-----
-
-    int rc = pico_led_init();
-    hard_assert(rc == PICO_OK);
-    while (true) {
-        pico_set_led(true);
-        sleep_ms(LED_DELAY_MS);
-        pico_set_led(false);
-        sleep_ms(LED_DELAY_MS);
-    }
-
-    //-------------------
+//END TIMER RELATED CODE
 
 
-}
-// int main()
-// {
-//     int rc = pico_led_init();
-//     hard_assert(rc == PICO_OK);
-//     while (true) {
-//         pico_set_led(true);
-//         sleep_ms(LED_DELAY_MS);
-//         pico_set_led(false);
-//         sleep_ms(LED_DELAY_MS);
+// static void heartbeat_handler(struct btstack_timer_source *ts) {
+//     static uint32_t counter = 0;
+//     counter++;
+    
+//     // Update the temp every 10s
+//     if(counter%10==0)
+//     {
+//         att_server_request_can_send_now_event(service_object.con_handle);
+//         printf("Current       :%s\n",service_object.characteristic_current_value);
+//         printf("Fan Control   :%s\n",service_object.characteristic_fan_ctrl_value);
+//         printf("Light Control :%s\n",service_object.characteristic_lights_ctrl_value);
+//         printf("Schedule      :%s\n",service_object.characteristic_schedule_value);
 //     }
+    
+
+//     // Invert the led
+//     static int led_on = true;
+//     led_on = !led_on;
+//     cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
+//     // Restart timer
+//     btstack_run_loop_set_timer(ts, HEARTBEAT_PERIOD_MS);
+//     btstack_run_loop_add_timer(ts);
 // }
+
+
+int main()
+{
+    
+    //initialize standard in/out
+    stdio_init_all();
+
+    // BLUETOOTH RELATED INITILIZATION CODE
+
+    //initilize CYW43
+    if(cyw43_arch_init())
+    {
+        printf("Failed to initialize Bluetooth");
+    }
+    //initialize L2CAP, security manager
+    l2cap_init();
+    sm_init();
+    // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+
+
+    att_server_init(profile_data,att_read_callback,att_write_callback);
+
+    custom_service_server_init(characteristic_current_rx,characteristic_fan_ctrl_tx,characteristic_lights_ctrl_tx,characteristic_schedule_tx);
+
+    hci_event_callback_registration.callback = &packet_handler;
+    
+    hci_add_event_handler(&hci_event_callback_registration);
+//
+    // register for ATT event
+    att_server_register_packet_handler(packet_handler);
+
+    // set one-shot btstack timer
+    // heartbeat.process = &heartbeat_handler;
+    // btstack_run_loop_set_timer(&heartbeat, HEARTBEAT_PERIOD_MS);
+    // btstack_run_loop_add_timer(&heartbeat);
+    
+      // turn on bluetooth!
+    hci_power_control(HCI_POWER_ON);
+    set_characteristic_current('5');
+    set_characteristic_fan_ctrl('1');
+    set_characteristic_lights_ctrl('1');
+    set_characteristic_schedule('F');
+
+    // ----END BLUETOOTH RELATED INITILIZATION CODE ---
+    printf("%s",service_object.characteristic_current_value);
+    
+     // Call alarm_callback in 2 seconds
+    add_alarm_in_ms(2000, alarm_callback, NULL, false);
+ 
+    // Wait for alarm callback to set timer_fired
+    while (!timer_fired) {
+        tight_loop_contents();
+    }
+
+    
+    // while (true) {
+        // printf("Hello, world!\n");
+        // sleep_ms(100);
+        // PACKET_HANDLER_FLAG = ~PACKET_HANDLER_FLAG;
+        // async_context_poll(cyw43_arch_async_context());
+        // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, PACKET_HANDLER_FLAG);
+        // async_context_wait_for_work_until(cyw43_arch_async_context(), at_the_end_of_time);
+    // }
+}

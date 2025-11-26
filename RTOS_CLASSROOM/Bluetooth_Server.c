@@ -1,5 +1,5 @@
 //Custom Header
-#include "bluetooth_setup.h"
+// #include "bluetooth_setup.h"
 
 // #include <stdio.h>
 // #include "pico/stdlib.h"
@@ -216,16 +216,18 @@ static void heartbeat_handler(struct btstack_timer_source *ts) {
     
 
     // Invert the led
-    static int led_on = true;
-    led_on = !led_on;
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
+    // static int led_on = true;
+    // led_on = !led_on;
+    // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
     // Restart timer
     btstack_run_loop_set_timer(ts, HEARTBEAT_PERIOD_MS);
     btstack_run_loop_add_timer(ts);
 }
 
-/*
-int main()
+
+
+
+int initilize_bluetooth()
 {
     
     //initialize standard in/out
@@ -253,26 +255,16 @@ int main()
     // register for ATT event
     att_server_register_packet_handler(packet_handler);
 
-    // set one-shot btstack timer
-    heartbeat.process = &heartbeat_handler;
-    btstack_run_loop_set_timer(&heartbeat, HEARTBEAT_PERIOD_MS);
-    btstack_run_loop_add_timer(&heartbeat);
-    
       // turn on bluetooth!
     hci_power_control(HCI_POWER_ON);
-    set_characteristic_current('5');
-    set_characteristic_fan_ctrl('1');
-    set_characteristic_lights_ctrl('1');
+    set_characteristic_current(0);
+    set_characteristic_fan_ctrl(1);
+    set_characteristic_lights_ctrl(1);
     set_characteristic_schedule('F');
 
     printf("%s",service_object.characteristic_current_value);
-    while (true) {
-        // printf("Hello, world!\n");
-        // sleep_ms(100);
-        // PACKET_HANDLER_FLAG = ~PACKET_HANDLER_FLAG;
-        async_context_poll(cyw43_arch_async_context());
-        // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, PACKET_HANDLER_FLAG);
-        async_context_wait_for_work_until(cyw43_arch_async_context(), at_the_end_of_time);
-    }
 }
-    */
+
+void poll(){
+    async_context_poll(cyw43_arch_async_context());
+}

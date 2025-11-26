@@ -1,13 +1,14 @@
-
+/*
+#include "bluetooth_setup.h"
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "btstack.h"
 #include "pico/cyw43_arch.h"
-#include "pico_btstack_cyw43.h"
-#include "pico_sync.h"
+#include "pico/btstack_cyw43.h"
+#include "pico/sync.h"
 #include <stdint.h>
 //custom code libraries
-// #include "Bluetooth_Server.c"
+#include "Bluetooth_Server.c"
 // #include "bluetooth_setup.h"
 
 
@@ -18,6 +19,17 @@
 #ifndef LED_DELAY_MS
 #define LED_DELAY_MS 250
 #endif
+
+
+#ifndef WRITE_PERIOD
+#define WRITE_PERIOD 1
+#endif
+
+
+#ifndef READ_PERIOD
+#define READ_PERIOD 1
+#endif
+
 
 //HELPER FUNCTIONS-----
 // Perform initialisation of led pin
@@ -51,6 +63,8 @@ void pico_set_led(bool led_on) {
 // #include "RIMS.h"
 // #include "C:\Users\t1m0t\Documents\GitHub Repositories\ImageProcessing-Project\Embedded-Capstone-Group-7\CurrentSensor.c"
 // sense_current
+
+
 unsigned char B;
 typedef struct task
 {
@@ -65,102 +79,79 @@ const unsigned long period = 100;
 const unsigned long periodBlinkLED = 1500;
 const unsigned long periodThreeLED = 500;
 
-task tasks[4];
+task tasks[3];
 
 // BLUETOOTH RELATED STATE VARIABLES and functions
-unsigned char rx_flag       = 0;
-unsigned char tx_flag       = 0;
-unsigned char read_data  = 0;
-unsigned char write_data = 0;
+unsigned char bluetooth_tx       = 0;
+short current_reading = 0;
 
-unsigned char read_bluetooth()
+
+unsigned char writeCharacteristic()
 {
-    //
-    //read from characteristics and take actions accordingly:
-    //- READ SCHEDULE THAT CLIENT(LAPTOP) WOULD HAVE WRITTEN AND ASSIGN THE VALUE TO VARIABLE
-    //- READ FAN_CONTROL THAT CLIENT(LAPTOP) WOULD HAVE WRITTEN AND ASSIGN THE VALUE TO VARIABLE
-    //- READ LIGHTS_CONTROL THAT CLIENT(LAPTOP) WOULD HAVE WRITTEN AND ASSIGN THE VALUE TO VARIABLE
-    //This should be done say, every 10 seconds
+    //This should be every 1 milisecond to obtain 1Khz
 
-    return(5);
+
+    return(1);
 }
-unsigned char write_bluetooth()
+unsigned char readControlSignals()
 {
     // write to the bluetooth characteristics:
     //- WRITE CURRENT READING
     return(1);
 }
+short readCurrent()
+{
+    current_reading = 5;
+}
+
 
 enum BLE_States { BLE_IDLE, BLE_INIT, BLE_READ_B, BLE_WRITE_B, BLE_ERROR } BLE_State;
 
-void TickFct_BLE_State() {
-   switch(BLE_State) { // Transitions
-      case BLE_INIT:
-         BLE_State = BLE_INIT;
+enum SM1_States { SM1_INIT, SM1_writeChar, SM1_Wait } SM1_State = SM1_INIT;
+int BLE_StateSM (int state);
+
+
+
+int BLE_StateSM(int state) {
+   switch(state) { // Transitions
+      case SM1_INIT:
+         state = SM1_writeChar;
          break;
-         case BLE_IDLE: 
-         if (!rx_flag & !tx_flag) {
-            BLE_State = BLE_IDLE;
+      case SM1_writeChar: 
+         if (!bluetooth_tx) {
+            state = SM1_writeChar;
          }
-         else if (rx_flag & !tx_flag) {
-            BLE_State = BLE_READ_B;
-         }
-         else if (tx_flag & !rx_flag) {
-            BLE_State = BLE_WRITE_B;
-         }
-         else if (rx_flag & tx_flag) {
-            BLE_State = BLE_ERROR;
-         }
-         break;
-      case BLE_READ_B: 
-         if (rx_flag) {
-            BLE_State = BLE_READ_B;
+         else if (bluetooth_tx) {
+            state = SM1_Wait;
          }
          break;
-      case BLE_WRITE_B: 
-         if (tx_flag) {
-            BLE_State = BLE_WRITE_B;
+      case SM1_Wait: 
+         if (bluetooth_tx) {
+            state = SM1_Wait;
          }
-         else if (!tx_flag) {
-            BLE_State = BLE_IDLE;
-         }
-         break;
-      case BLE_ERROR: 
-         if (1) {
-            BLE_State = BLE_INIT;
+         else if (!bluetooth_tx) {
+            state = SM1_writeChar;
          }
          break;
       default:
-         BLE_State = BLE_INIT;
+         state = SM1_INIT;
    } // Transitions
 
-   switch(BLE_State) { // State actions
-      case BLE_IDLE:
-         break;
-      case BLE_INIT:
-         //Turn on Bluetooth Chip
-         rx_flag=0;
-         tx_flag=0;
-         break;
-      case BLE_READ_B:
-         read_data = read_bluetooth();
-         rx_flag = 0;
+   switch(state) { // State actions
+      case SM1_INIT:
+        initilize_bluetooth();
+        break;
+      case SM1_writeChar:
+         writeCharacteristic();
          
          break;
-      case BLE_WRITE_B:
-         write_data = write_bluetooth();
-         tx_flag=0;
-         break;
-      case BLE_ERROR:
-         printf("error");
-         //Turn off Bluetooth Chip
+      case SM1_Wait:
          break;
       default: // ADD default behaviour below
       break;
    } // State actions
-
+   return state;
 }
-
 
 //---
 
@@ -170,6 +161,26 @@ int BlinkLED (int state);
 enum TL_states {TL0, TL1, TL2};
 int ThreeLED (int state);
 
+
+
+//handling timer
+volatile char timer_fired = 0;
+short counter = 0;
+int64_t alarm_callback(alarm_id_t id,__unused void *user_data)
+{
+    counter++;
+    // printf("Timer %d fired!\n", (int) id);
+    if(counter % 1000 == 0)
+    {
+        printf("One second counter =  %d \n", (short) counter);
+
+    }
+    timer_fired = 1;
+    return 0;
+}
+
+
+
 void TimerISR ()
 {
     unsigned char i;
@@ -177,8 +188,10 @@ void TimerISR ()
     {
         if (tasks[i].elapsedTime >= tasks[i].period)
         {
-        tasks[i].state = tasks[i].Function(tasks[i].state);
-        tasks[i].elapsedTime = 0;
+            tasks[i].state = tasks[i].Function(tasks[i].state);
+            tasks[i].elapsedTime = 0;
+            poll();
+
         }
         tasks[i].elapsedTime += period;
     }
@@ -229,41 +242,28 @@ int ThreeLED (int state)
 
 int main ()
 {
-    //---RTOS MAIN----
-    // tasks[0].state = BL0;
-    // tasks[0].period = periodBlinkLED;
-    // tasks[0].elapsedTime = tasks[0].period;
-    // tasks[0].Function = &BlinkLED;
-    // tasks[1].state = TL0;
-    // tasks[1].period = periodThreeLED;
-    // tasks[1].elapsedTime = tasks[1].period;
-    // tasks[1].Function = &ThreeLED;
+    //---SETUP---
+    stdio_init_all();
 
-    // // Bluetooth State mMachine Setup
-
-    // TimerSet (period);
-    // TimerOn ();
-
-    // while (1);
-
-    // return 0;
-    //--------------------
-
-    //-----DEMO CODE-----
-
-    int rc = pico_led_init();
-    hard_assert(rc == PICO_OK);
-    while (true) {
-        pico_set_led(true);
-        sleep_ms(LED_DELAY_MS);
-        pico_set_led(false);
-        sleep_ms(LED_DELAY_MS);
+   //initilize CYW43
+    if(cyw43_arch_init())
+    {
+        printf("Failed to initialize Bluetooth");
     }
 
-    //-------------------
+    //initialize L2CAP, security manager
+    l2cap_init();
+    sm_init();
+
+    printf("%s",service_object.characteristic_current_value);
+    while (true) {
+        async_context_poll(cyw43_arch_async_context());
+    }
 
 
 }
+    //-------------------
+
 // int main()
 // {
 //     int rc = pico_led_init();
@@ -275,3 +275,4 @@ int main ()
 //         sleep_ms(LED_DELAY_MS);
 //     }
 // }
+*/
