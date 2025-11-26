@@ -255,7 +255,7 @@ int BLE_StateSM(int state) {
 
    switch(state) { // State actions
       case SM1_INIT:
-        initilize_bluetooth();
+        // initilize_bluetooth();
         break;
       case SM1_writeChar:
          writeCharacteristic();
@@ -273,7 +273,7 @@ int BLE_StateSM(int state) {
 
 //------TIMER RELATED CODE
 volatile bool timer_fired = false;
-char led_on = 0
+char led_on = 0;
 int64_t alarm_callback(alarm_id_t id, __unused void *user_data) {
     printf("Timer %d fired!\n", (int) id);
     timer_fired = true;
@@ -282,6 +282,27 @@ int64_t alarm_callback(alarm_id_t id, __unused void *user_data) {
 
     // Can return a value here in us to fire in the future
     return 0;
+}
+short test_cnt = 0;
+bool repeating_timer_callback(__unused struct repeating_timer *t) {
+    // printf("Repeat at %lld\n", time_us_64());
+    // led_on = ~led_on;
+    test_cnt++;
+    if(test_cnt % 1000 == 0)
+    {
+        // printf("\n");
+        printf("One second \'Samples\': %d\n",test_cnt);
+        printf("Current Value: %s\n",service_object.characteristic_current_value);
+        printf("Fan Control: %s\n",service_object.characteristic_fan_ctrl_value);
+        // printf("Light Control: %s\n",service_object.characteristic_lights_ctrl_value);
+        // printf("Schedule: %s\n",service_object.characteristic_schedule_value);
+        // printf("\n");
+
+    }
+    // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
+    async_context_poll(cyw43_arch_async_context());
+
+    return true;
 }
 
 //END TIMER RELATED CODE
@@ -349,29 +370,30 @@ int main()
     
       // turn on bluetooth!
     hci_power_control(HCI_POWER_ON);
-    set_characteristic_current('5');
-    set_characteristic_fan_ctrl('1');
-    set_characteristic_lights_ctrl('1');
-    set_characteristic_schedule('F');
+    set_characteristic_current(5);
+    set_characteristic_fan_ctrl(1);
+    set_characteristic_lights_ctrl(1);
+    set_characteristic_schedule(100);
 
     // ----END BLUETOOTH RELATED INITILIZATION CODE ---
-    printf("%s",service_object.characteristic_current_value);
+    // printf("%s",service_object.characteristic_current_value);
     
      // Call alarm_callback in 2 seconds
-    add_alarm_in_ms(2000, alarm_callback, NULL, false);
- 
+    // add_alarm_in_ms(1000, alarm_callback, NULL, false);
+    // timer
     // Wait for alarm callback to set timer_fired
-    while (!timer_fired) {
-        tight_loop_contents();
-    }
-
+    // while (!timer_fired) {
+        // tight_loop_contents();
+    // }
+    struct repeating_timer timer;
+    add_repeating_timer_ms(1, repeating_timer_callback, NULL, &timer);
+    sleep_ms(3000);
     
-    // while (true) {
+    while (true) {
         // printf("Hello, world!\n");
         // sleep_ms(100);
         // PACKET_HANDLER_FLAG = ~PACKET_HANDLER_FLAG;
-        // async_context_poll(cyw43_arch_async_context());
         // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, PACKET_HANDLER_FLAG);
         // async_context_wait_for_work_until(cyw43_arch_async_context(), at_the_end_of_time);
-    // }
+    }
 }
