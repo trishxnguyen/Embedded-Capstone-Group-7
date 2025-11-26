@@ -16,14 +16,14 @@ else()
     set(USERHOME $ENV{HOME})
 endif()
 set(sdkVersion 2.2.0)
-set(toolchainVersion 14_2_Rel1)
+set(toolchainVersion RISCV_ZCB_RPI_2_2_0_3)
 set(picotoolVersion 2.2.0-a4)
 set(picoVscode ${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
 if (EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
 # ====================================================================================
-set(PICO_BOARD pico2 CACHE STRING "Board type")
+set(PICO_BOARD pico2_w CACHE STRING "Board type")
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
@@ -52,7 +52,8 @@ target_link_libraries(RTOS_CLASSROOM
         pico_stdlib
         pico_cyw43_arch_none
         pico_btstack_ble
-        pico_btstack_cyw43)
+        pico_btstack_cyw43
+        )
 
 # Add the standard include files to the build
 target_include_directories(RTOS_CLASSROOM PRIVATE

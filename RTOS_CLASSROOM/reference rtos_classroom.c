@@ -3,8 +3,8 @@
 #include "pico/stdlib.h"
 #include "btstack.h"
 #include "pico/cyw43_arch.h"
-#include "pico/btstack_cyw43.h"
-#include "pico/sync.h"
+#include "pico_btstack_cyw43.h"
+#include "pico_sync.h"
 #include <stdint.h>
 //custom code libraries
 // #include "Bluetooth_Server.c"
