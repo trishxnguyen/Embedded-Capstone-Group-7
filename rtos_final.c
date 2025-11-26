@@ -47,8 +47,8 @@ enum BLE_States { BLE_IDLE, BLE_INIT, BLE_READ_B, BLE_WRITE_B, BLE_ERROR } BLE_S
 
 void TickFct_BLE_State() {
    switch(BLE_State) { // Transitions
-      case -1:
-         BLE_State = BLE_INIT;
+      case BLE_INIT:
+         BLE_State = BLE_IDLE;
          break;
          case BLE_IDLE: 
          if (!rx_flag & !tx_flag) {
@@ -62,11 +62,6 @@ void TickFct_BLE_State() {
          }
          else if (rx_flag & tx_flag) {
             BLE_State = BLE_ERROR;
-         }
-         break;
-      case BLE_INIT: 
-         if (1) {
-            BLE_State = BLE_IDLE;
          }
          break;
       case BLE_READ_B: 
