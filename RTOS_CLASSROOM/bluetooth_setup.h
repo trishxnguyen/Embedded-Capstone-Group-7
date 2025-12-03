@@ -29,6 +29,18 @@ typedef struct {
     char *      characteristic_lights_ctrl_value ;
     uint16_t      characteristic_lights_ctrl_client_configuration ;
     char *      characteristic_lights_ctrl_user_description ;
+
+    // Characteristic LIGHTS_CONTROL_OVERRIDE information
+    char *      characteristic_lights_ctrl_override_value ;
+    uint16_t      characteristic_lights_ctrl_override_client_configuration ;
+    char *      characteristic_lights_ctrl_override_user_description ;
+
+    // Characteristic FAN_CONTROL_OVERRIDE information
+    char *      characteristic_fan_ctrl_override_value ;
+    uint16_t      characteristic_fan_ctrl_override_client_configuration ;
+    char *      characteristic_fan_ctrl_override_user_description ;
+
+
     // Characteristic SCHEDULE information
     char *   characteristic_schedule_value ;
     uint16_t      characteristic_schedule_client_configuration ;
@@ -48,6 +60,16 @@ typedef struct {
     uint16_t characteristic_lights_ctrl_handle;
     uint16_t characteristic_lights_ctrl_configuration_handle;
     uint16_t characteristic_lights_ctrl_user_description_handle;
+
+    // Characteristic LIGHT_CTRL_OVERRIDE Handles
+    uint16_t characteristic_lights_ctrl_override_handle;
+    uint16_t characteristic_lights_ctrl_override_configuration_handle;
+    uint16_t characteristic_lights_ctrl_override_user_description_handle;
+    // Characteristic FAN_CTRL_OVERRIDE Handles
+    uint16_t characteristic_fan_ctrl_override_handle;
+    uint16_t characteristic_fan_ctrl_override_configuration_handle;
+    uint16_t characteristic_fan_ctrl_override_user_description_handle;
+
     //Characteristic SCHEDULE Handles
     uint16_t characteristic_schedule_handle;
     uint16_t characteristic_schedule_configuration_handle;
@@ -57,6 +79,9 @@ typedef struct {
     btstack_context_callback_registration_t callback_current;
     btstack_context_callback_registration_t callback_fan_ctrl;
     btstack_context_callback_registration_t callback_lights_ctrl;
+    btstack_context_callback_registration_t callback_lights_ctrl_override;
+    btstack_context_callback_registration_t callback_fan_ctrl_override;
+
     btstack_context_callback_registration_t callback_schedule;
 
 
@@ -90,6 +115,22 @@ static void characteristic_lights_ctrl_callback(void * context)
     custom_service * instance = (custom_service *) context;
     //send notification
     att_server_notify(instance->con_handle,instance->characteristic_lights_ctrl_handle,instance->characteristic_lights_ctrl_value,strlen(instance->characteristic_lights_ctrl_value));
+
+}
+static void characteristic_lights_ctrl_override_callback(void * context)
+{
+    // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+    custom_service * instance = (custom_service *) context;
+    //send notification
+    att_server_notify(instance->con_handle,instance->characteristic_lights_ctrl_override_handle,instance->characteristic_lights_ctrl_value,strlen(instance->characteristic_lights_ctrl_value));
+
+}
+static void characteristic_fan_ctrl_override_callback(void * context)
+{
+    // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+    custom_service * instance = (custom_service *) context;
+    //send notification
+    att_server_notify(instance->con_handle,instance->characteristic_fan_ctrl_override_handle,instance->characteristic_lights_ctrl_value,strlen(instance->characteristic_lights_ctrl_value));
 
 }
 
@@ -160,6 +201,64 @@ static void set_characteristic_lights_ctrl(char value)
     }
 }
 
+static void set_characteristic_lights_ctrl(char value)
+{
+    // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+
+    custom_service * instance = &service_object;
+    printf(instance->characteristic_lights_ctrl_value);
+    sprintf(instance->characteristic_lights_ctrl_value,"%d",value);
+
+    if(instance->characteristic_lights_ctrl_client_configuration)
+    {
+        instance->callback_lights_ctrl.callback = &characteristic_lights_ctrl_callback;
+        instance->callback_lights_ctrl.context = (void*) instance;
+        // sprintf(instance->characteristic_current_value, "%d", value) ;
+        sprintf(instance->characteristic_lights_ctrl_value,"%d",value);
+        printf(instance->characteristic_lights_ctrl_value);
+        att_server_register_can_send_now_callback(&instance->callback_lights_ctrl,instance->con_handle);
+    }
+}
+
+static void set_characteristic_lights_ctrl_override(char value)
+{
+    // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+
+    custom_service * instance = &service_object;
+    printf(instance->characteristic_lights_ctrl_override_value);
+    sprintf(instance->characteristic_lights_ctrl_override_value,"%d",value);
+
+    if(instance->characteristic_lights_ctrl_override_client_configuration)
+    {
+        instance->callback_lights_ctrl_override.callback = &characteristic_lights_ctrl_override_callback;
+        instance->callback_lights_ctrl_override.context = (void*) instance;
+        // sprintf(instance->characteristic_current_value, "%d", value) ;
+        sprintf(instance->characteristic_lights_ctrl_override_value,"%d",value);
+        printf(instance->characteristic_lights_ctrl_override_value);
+        att_server_register_can_send_now_callback(&instance->callback_lights_ctrl_override,instance->con_handle);
+    }
+}
+
+static void set_characteristic_fan_ctrl_override(char value)
+{
+    // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+
+    custom_service * instance = &service_object;
+    printf(instance->characteristic_fan_ctrl_override_value);
+    sprintf(instance->characteristic_fan_ctrl_override_value,"%d",value);
+
+    if(instance->characteristic_fan_ctrl_override_client_configuration)
+    {
+        instance->callback_fan_ctrl_override.callback = &characteristic_fan_ctrl_override_callback;
+        instance->callback_fan_ctrl_override.context = (void*) instance;
+        // sprintf(instance->characteristic_current_value, "%d", value) ;
+        sprintf(instance->characteristic_fan_ctrl_override_value,"%d",value);
+        printf(instance->characteristic_fan_ctrl_override_value);
+        att_server_register_can_send_now_callback(&instance->callback_fan_ctrl_override,instance->con_handle);
+    }
+}
+
+
 static void set_characteristic_schedule(char value)
 {
     // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
@@ -212,7 +311,19 @@ void custom_service_server_init(char * ptr_current,char * ptr_fan_ctrl,char * pt
     instance->characteristic_lights_ctrl_handle = ATT_CHARACTERISTIC_74d31fe2_71d3_41c5_aa94_f15f9f61f3c6_01_VALUE_HANDLE;
     instance->characteristic_lights_ctrl_configuration_handle = ATT_CHARACTERISTIC_74d31fe2_71d3_41c5_aa94_f15f9f61f3c6_01_CLIENT_CONFIGURATION_HANDLE;
     instance->characteristic_lights_ctrl_user_description_handle = ATT_CHARACTERISTIC_74d31fe2_71d3_41c5_aa94_f15f9f61f3c6_01_USER_DESCRIPTION_HANDLE;
+//---
+    instance->characteristic_fan_ctrl_override_handle = ATT_CHARACTERISTIC_74d31fe2_71d3_41c5_aa94_f15f9f61f3c7_01_VALUE_HANDLE;
+    instance->characteristic_fan_ctrl_override_configuration_handle = ATT_CHARACTERISTIC_74d31fe2_71d3_41c5_aa94_f15f9f61f3c7_01_CLIENT_CONFIGURATION_HANDLE;
+    instance->characteristic_fan_ctrl_override_user_description_handle = ATT_CHARACTERISTIC_74d31fe2_71d3_41c5_aa94_f15f9f61f3c7_01_USER_DESCRIPTION_HANDLE;
     
+    instance->characteristic_lights_ctrl_override_handle = ATT_CHARACTERISTIC_74d31fe2_71d3_41c5_aa94_f15f9f61f3c6_01_VALUE_HANDLE;
+    instance->characteristic_lights_ctrl_override_configuration_handle = ATT_CHARACTERISTIC_74d31fe2_71d3_41c5_aa94_f15f9f61f3c6_01_CLIENT_CONFIGURATION_HANDLE;
+    instance->characteristic_lights_ctrl_override_user_description_handle = ATT_CHARACTERISTIC_74d31fe2_71d3_41c5_aa94_f15f9f61f3c6_01_USER_DESCRIPTION_HANDLE;
+
+
+//---
+    
+
     instance->characteristic_schedule_handle = ATT_CHARACTERISTIC_989dd69c_1be4_4b29_8bb4_ece912ddb61d_01_VALUE_HANDLE;
     instance->characteristic_schedule_configuration_handle = ATT_CHARACTERISTIC_989dd69c_1be4_4b29_8bb4_ece912ddb61d_01_CLIENT_CONFIGURATION_HANDLE;
     instance->characteristic_schedule_user_description_handle = ATT_CHARACTERISTIC_989dd69c_1be4_4b29_8bb4_ece912ddb61d_01_USER_DESCRIPTION_HANDLE;

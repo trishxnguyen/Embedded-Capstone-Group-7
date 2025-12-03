@@ -21,6 +21,7 @@
 
 #define APP_AD_FLAGS 0x06
 
+static unsigned char reset;
 
 //----------BLUETOOTH RELATED CODE--------------------
 
@@ -217,8 +218,8 @@ static unsigned char characteristic_schedule_tx[100];
 
 int le_notification_enabled;
 hci_con_handle_t con_handle;
-uint16_t current_temp = 50;
-static btstack_timer_source_t heartbeat;
+uint16_t current_light_reading = 0;
+uint16_t current_fan_reading = 0;
 static btstack_packet_callback_registration_t hci_event_callback_registration;
 
 
@@ -274,7 +275,7 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packe
             break;
         case ATT_EVENT_CAN_SEND_NOW:
             // service_current
-            att_server_notify(service_object.con_handle, service_object.characteristic_current_handle, (uint8_t*)&current_temp, sizeof(current_temp));
+            att_server_notify(service_object.con_handle, service_object.characteristic_current_handle, (uint8_t*)&current_reading, sizeof(current_reading));
         default:
             break;
     }
@@ -304,7 +305,7 @@ short readCurrent()
 // ------ BLUETOOTH RELATED STATE MACHINE INFORMATION
 enum BLE_Poll { SM1_INIT, SM1_POLL } SM1_State;
 
-TickFct_State_machine_1() {
+TickFct_BLE_Poll() {
    switch(SM1_State) { // Transitions
       case -1:
          SM1_State = SM1_INIT;
@@ -371,7 +372,7 @@ TickFct_State_machine_1() {
       default: // ADD default behaviour below
       break;
    } // State actions
-
+}
 //END BLUETOOTH RELATED CODE
 
 //------TIMER RELATED CODE
@@ -397,7 +398,6 @@ bool repeating_timer_callback(__unused struct repeating_timer *t) {
         cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
 
     }
-    async_context_poll(cyw43_arch_async_context());
     // async_context_wait_for_work_until(cyw43_arch_async_context(), at_the_end_of_time);
 
     return true;
