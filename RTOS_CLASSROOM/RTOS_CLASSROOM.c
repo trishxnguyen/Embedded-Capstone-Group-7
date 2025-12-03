@@ -302,53 +302,75 @@ short readCurrent()
 }
 
 // ------ BLUETOOTH RELATED STATE MACHINE INFORMATION
-enum BLE_States { BLE_IDLE, BLE_INIT, BLE_READ_B, BLE_WRITE_B, BLE_ERROR } BLE_State;
+enum BLE_Poll { SM1_INIT, SM1_POLL } SM1_State;
 
-enum SM1_States { SM1_INIT, SM1_writeChar, SM1_Wait } SM1_State = SM1_INIT;
-int BLE_StateSM (int state);
-
-
-
-int BLE_StateSM(int state) {
-   switch(state) { // Transitions
-      case SM1_INIT:
-         state = SM1_writeChar;
+TickFct_State_machine_1() {
+   switch(SM1_State) { // Transitions
+      case -1:
+         SM1_State = SM1_INIT;
          break;
-      case SM1_writeChar: 
-         if (!bluetooth_tx) {
-            state = SM1_writeChar;
-         }
-         else if (bluetooth_tx) {
-            state = SM1_Wait;
+         case SM1_INIT: 
+         if (1) {
+            SM1_State = SM1_POLL;
          }
          break;
-      case SM1_Wait: 
-         if (bluetooth_tx) {
-            state = SM1_Wait;
+      case SM1_POLL: 
+         if (!reset) {
+            SM1_State = SM1_POLL;
          }
-         else if (!bluetooth_tx) {
-            state = SM1_writeChar;
+         else if (reset) {
+            SM1_State = SM1_INIT;
          }
          break;
       default:
-         state = SM1_INIT;
+         SM1_State = SM1_INIT;
    } // Transitions
 
-   switch(state) { // State actions
+   switch(SM1_State) { // State actions
       case SM1_INIT:
-        // initilize_bluetooth();
-        break;
-      case SM1_writeChar:
-         writeCharacteristic();
+          // BLUETOOTH RELATED INITILIZATION CODE
+
+         if(cyw43_arch_init())
+             {
+                 printf("Failed to initialize Bluetooth");
+             }
+             //initialize L2CAP, security manager
+            l2cap_init();
+            sm_init();
+             // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+         
+         
+            att_server_init(profile_data,att_read_callback,att_write_callback);
+         
+            custom_service_server_init(characteristic_current_rx,characteristic_fan_ctrl_tx,characteristic_lights_ctrl_tx,characteristic_schedule_tx);
+         
+            hci_event_callback_registration.callback = &packet_handler;
+             
+            hci_add_event_handler(&hci_event_callback_registration);
+         //
+             // register for ATT event
+            att_server_register_packet_handler(packet_handler);
+         
+             // set one-shot btstack timer
+             // heartbeat.process = &heartbeat_handler;
+             // btstack_run_loop_set_timer(&heartbeat, HEARTBEAT_PERIOD_MS);
+             // btstack_run_loop_add_timer(&heartbeat);
+             
+               // turn on bluetooth!
+            hci_power_control(HCI_POWER_ON);
+            set_characteristic_current(0);
+            set_characteristic_fan_ctrl(0);
+            set_characteristic_lights_ctrl(0);
+            set_characteristic_schedule(100);
          
          break;
-      case SM1_Wait:
+      case SM1_POLL:
+             async_context_poll(cyw43_arch_async_context());
+         
          break;
       default: // ADD default behaviour below
       break;
    } // State actions
-   return state;
-}
 
 //END BLUETOOTH RELATED CODE
 
@@ -380,95 +402,18 @@ bool repeating_timer_callback(__unused struct repeating_timer *t) {
 
     return true;
 }
-
-//END TIMER RELATED CODE
-
-
-// static void heartbeat_handler(struct btstack_timer_source *ts) {
-//     static uint32_t counter = 0;
-//     counter++;
-    
-//     // Update the temp every 10s
-//     if(counter%10==0)
-//     {
-//         att_server_request_can_send_now_event(service_object.con_handle);
-//         printf("Current       :%s\n",service_object.characteristic_current_value);
-//         printf("Fan Control   :%s\n",service_object.characteristic_fan_ctrl_value);
-//         printf("Light Control :%s\n",service_object.characteristic_lights_ctrl_value);
-//         printf("Schedule      :%s\n",service_object.characteristic_schedule_value);
-//     }
-    
-
-//     // Invert the led
-//     static int led_on = true;
-//     led_on = !led_on;
-//     cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
-//     // Restart timer
-//     btstack_run_loop_set_timer(ts, HEARTBEAT_PERIOD_MS);
-//     btstack_run_loop_add_timer(ts);
-// }
-
-
 int main()
 {
     
     //initialize standard in/out
     stdio_init_all();
 
-    // BLUETOOTH RELATED INITILIZATION CODE
 
-    //initilize CYW43
-    if(cyw43_arch_init())
-    {
-        printf("Failed to initialize Bluetooth");
-    }
-    //initialize L2CAP, security manager
-    l2cap_init();
-    sm_init();
-    // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
-
-
-    att_server_init(profile_data,att_read_callback,att_write_callback);
-
-    custom_service_server_init(characteristic_current_rx,characteristic_fan_ctrl_tx,characteristic_lights_ctrl_tx,characteristic_schedule_tx);
-
-    hci_event_callback_registration.callback = &packet_handler;
-    
-    hci_add_event_handler(&hci_event_callback_registration);
-//
-    // register for ATT event
-    att_server_register_packet_handler(packet_handler);
-
-    // set one-shot btstack timer
-    // heartbeat.process = &heartbeat_handler;
-    // btstack_run_loop_set_timer(&heartbeat, HEARTBEAT_PERIOD_MS);
-    // btstack_run_loop_add_timer(&heartbeat);
-    
-      // turn on bluetooth!
-    hci_power_control(HCI_POWER_ON);
-    set_characteristic_current(5);
-    set_characteristic_fan_ctrl(0);
-    set_characteristic_lights_ctrl(0);
-    set_characteristic_schedule(100);
-
-    // ----END BLUETOOTH RELATED INITILIZATION CODE ---
-    // printf("%s",service_object.characteristic_current_value);
-    
-     // Call alarm_callback in 2 seconds
-    // add_alarm_in_ms(1000, alarm_callback, NULL, false);
-    // timer
-    // Wait for alarm callback to set timer_fired
-    // while (!timer_fired) {
-        // tight_loop_contents();
-    // }
     struct repeating_timer timer;
     add_repeating_timer_ms(1, repeating_timer_callback, NULL, &timer);
     sleep_ms(3000);
     
     while (true) {
-        // printf("Hello, world!\n");
-        // sleep_ms(100);
-        // PACKET_HANDLER_FLAG = ~PACKET_HANDLER_FLAG;
-        // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, PACKET_HANDLER_FLAG);
+        
     }
 }
