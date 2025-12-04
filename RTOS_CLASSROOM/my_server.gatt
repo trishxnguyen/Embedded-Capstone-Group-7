@@ -9,16 +9,17 @@ CHARACTERISTIC, GATT_DATABASE_HASH, READ,
 //----------------------------
 PRIMARY_SERVICE,  2727f058-69dd-4d78-9b6f-9c2ebbb67d45
 
-//Characteristic 1
+
+//Characteristic 1 (Current: char)
 CHARACTERISTIC, 3727f058-69dd-4d78-9b6f-9c2ebbb67d44, READ | NOTIFY | DYNAMIC,
 CHARACTERISTIC_USER_DESCRIPTION, READ,
 
 
-//Characteristic 2 (Fan Control : BOOLEAN)
+//Characteristic 2 (Fan Status : BOOLEAN)
 CHARACTERISTIC, 74d31fe2-71d3-41c5-aa94-f15f9f61f3c7, READ | NOTIFY | DYNAMIC,
 CHARACTERISTIC_USER_DESCRIPTION, READ,
 
-//Characteristic 3 (Lights Control : BOOLEAN)
+//Characteristic 3 (Lights Status: BOOLEAN)
 CHARACTERISTIC, 74d31fe2-71d3-41c5-aa94-f15f9f61f3c6, READ | NOTIFY | DYNAMIC,
 CHARACTERISTIC_USER_DESCRIPTION, READ,
 
@@ -33,6 +34,6 @@ CHARACTERISTIC_USER_DESCRIPTION, READ,
 
 
 
-//Characteristic 6 (Schedule : 16-bit Binary Number)
+//Characteristic 6 (Schedule : 8-bit Binary Number)
 CHARACTERISTIC, 989dd69c-1be4-4b29-8bb4-ece912ddb61d, READ | NOTIFY | WRITE_WITHOUT_RESPONSE | DYNAMIC,
 CHARACTERISTIC_USER_DESCRIPTION, READ,
