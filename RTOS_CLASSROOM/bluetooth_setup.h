@@ -201,24 +201,7 @@ static void set_characteristic_lights_ctrl(char value)
     }
 }
 
-static void set_characteristic_lights_ctrl(char value)
-{
-    // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
 
-    custom_service * instance = &service_object;
-    printf(instance->characteristic_lights_ctrl_value);
-    sprintf(instance->characteristic_lights_ctrl_value,"%d",value);
-
-    if(instance->characteristic_lights_ctrl_client_configuration)
-    {
-        instance->callback_lights_ctrl.callback = &characteristic_lights_ctrl_callback;
-        instance->callback_lights_ctrl.context = (void*) instance;
-        // sprintf(instance->characteristic_current_value, "%d", value) ;
-        sprintf(instance->characteristic_lights_ctrl_value,"%d",value);
-        printf(instance->characteristic_lights_ctrl_value);
-        att_server_register_can_send_now_callback(&instance->callback_lights_ctrl,instance->con_handle);
-    }
-}
 
 static void set_characteristic_lights_ctrl_override(char value)
 {
@@ -285,13 +268,16 @@ char characteristic_fan_ctrl[] = "Fan Control";
 char characteristic_lights_ctrl[] = "Light Control";
 char characteristic_schedule[] = "Schedule";
 
-void custom_service_server_init(char * ptr_current,char * ptr_fan_ctrl,char * ptr_lights_ctrl,char * ptr_schedule)
+void custom_service_server_init(char * ptr_current,char * ptr_fan_ctrl,char * ptr_lights_ctrl, char * ptr_fan_override_ctrl,char * ptr_lights_override_ctrl,char * ptr_schedule)
 {
 
     custom_service * instance = &service_object;
     instance->characteristic_current_value     = ptr_current;
     instance->characteristic_fan_ctrl_value    = ptr_fan_ctrl;
     instance->characteristic_lights_ctrl_value = ptr_lights_ctrl;
+    instance->characteristic_fan_ctrl_override_value = ptr_fan_override_ctrl;
+    instance->characteristic_lights_ctrl_value = ptr_lights_ctrl;
+
     instance->characteristic_schedule_value    = ptr_schedule;
 
     instance->characteristic_current_user_description = characteristic_current;
@@ -312,13 +298,13 @@ void custom_service_server_init(char * ptr_current,char * ptr_fan_ctrl,char * pt
     instance->characteristic_lights_ctrl_configuration_handle = ATT_CHARACTERISTIC_74d31fe2_71d3_41c5_aa94_f15f9f61f3c6_01_CLIENT_CONFIGURATION_HANDLE;
     instance->characteristic_lights_ctrl_user_description_handle = ATT_CHARACTERISTIC_74d31fe2_71d3_41c5_aa94_f15f9f61f3c6_01_USER_DESCRIPTION_HANDLE;
 //---
-    instance->characteristic_fan_ctrl_override_handle = ATT_CHARACTERISTIC_74d31fe2_71d3_41c5_aa94_f15f9f61f3c7_01_VALUE_HANDLE;
-    instance->characteristic_fan_ctrl_override_configuration_handle = ATT_CHARACTERISTIC_74d31fe2_71d3_41c5_aa94_f15f9f61f3c7_01_CLIENT_CONFIGURATION_HANDLE;
-    instance->characteristic_fan_ctrl_override_user_description_handle = ATT_CHARACTERISTIC_74d31fe2_71d3_41c5_aa94_f15f9f61f3c7_01_USER_DESCRIPTION_HANDLE;
+    instance->characteristic_fan_ctrl_override_handle = ATT_CHARACTERISTIC_74d31fe2_71d3_41c5_aa94_f15f9f61f3c5_01_VALUE_HANDLE;
+    instance->characteristic_fan_ctrl_override_configuration_handle = ATT_CHARACTERISTIC_74d31fe2_71d3_41c5_aa94_f15f9f61f3c5_01_CLIENT_CONFIGURATION_HANDLE;
+    instance->characteristic_fan_ctrl_override_user_description_handle = ATT_CHARACTERISTIC_74d31fe2_71d3_41c5_aa94_f15f9f61f3c5_01_USER_DESCRIPTION_HANDLE;
     
-    instance->characteristic_lights_ctrl_override_handle = ATT_CHARACTERISTIC_74d31fe2_71d3_41c5_aa94_f15f9f61f3c6_01_VALUE_HANDLE;
-    instance->characteristic_lights_ctrl_override_configuration_handle = ATT_CHARACTERISTIC_74d31fe2_71d3_41c5_aa94_f15f9f61f3c6_01_CLIENT_CONFIGURATION_HANDLE;
-    instance->characteristic_lights_ctrl_override_user_description_handle = ATT_CHARACTERISTIC_74d31fe2_71d3_41c5_aa94_f15f9f61f3c6_01_USER_DESCRIPTION_HANDLE;
+    instance->characteristic_lights_ctrl_override_handle = ATT_CHARACTERISTIC_74d31fe2_71d3_41c5_aa94_f15f9f61f3c4_01_VALUE_HANDLE;
+    instance->characteristic_lights_ctrl_override_configuration_handle = ATT_CHARACTERISTIC_74d31fe2_71d3_41c5_aa94_f15f9f61f3c4_01_CLIENT_CONFIGURATION_HANDLE;
+    instance->characteristic_lights_ctrl_override_user_description_handle = ATT_CHARACTERISTIC_74d31fe2_71d3_41c5_aa94_f15f9f61f3c4_01_USER_DESCRIPTION_HANDLE;
 
 
 //---

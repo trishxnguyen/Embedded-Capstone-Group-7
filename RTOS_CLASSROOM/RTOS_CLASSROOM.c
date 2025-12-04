@@ -23,6 +23,10 @@
 
 static unsigned char reset;
 
+
+//----RTOS CLASSES
+
+
 //----------BLUETOOTH RELATED CODE--------------------
 
 static uint16_t att_read_callback(hci_con_handle_t con_handle, uint16_t attribute_handle, uint16_t offset, uint8_t * buffer, uint16_t buffer_size)
@@ -205,6 +209,9 @@ static int att_write_callback(hci_con_handle_t con_handle, uint16_t attribute_ha
 static unsigned char characteristic_current_rx[100];
 static unsigned char characteristic_fan_ctrl_tx[100];
 static unsigned char characteristic_lights_ctrl_tx[100];
+static unsigned char characteristic_lights_ctrl_override_tx[100];
+static unsigned char characteristic_fan_ctrl_override_tx[100];
+
 static unsigned char characteristic_schedule_tx[100];
 
 
@@ -275,7 +282,7 @@ static void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packe
             break;
         case ATT_EVENT_CAN_SEND_NOW:
             // service_current
-            att_server_notify(service_object.con_handle, service_object.characteristic_current_handle, (uint8_t*)&current_reading, sizeof(current_reading));
+            att_server_notify(service_object.con_handle, service_object.characteristic_current_handle, (uint8_t*)&current_light_reading, sizeof(current_light_reading));
         default:
             break;
     }
@@ -305,7 +312,7 @@ short readCurrent()
 // ------ BLUETOOTH RELATED STATE MACHINE INFORMATION
 enum BLE_Poll { SM1_INIT, SM1_POLL } SM1_State;
 
-TickFct_BLE_Poll() {
+int TickFct_BLE_Poll() {
    switch(SM1_State) { // Transitions
       case -1:
          SM1_State = SM1_INIT;
@@ -343,7 +350,7 @@ TickFct_BLE_Poll() {
          
             att_server_init(profile_data,att_read_callback,att_write_callback);
          
-            custom_service_server_init(characteristic_current_rx,characteristic_fan_ctrl_tx,characteristic_lights_ctrl_tx,characteristic_schedule_tx);
+            custom_service_server_init(characteristic_current_rx,characteristic_fan_ctrl_tx,characteristic_lights_ctrl_tx,characteristic_fan_ctrl_override_tx,characteristic_lights_ctrl_override_tx,characteristic_schedule_tx);
          
             hci_event_callback_registration.callback = &packet_handler;
              
