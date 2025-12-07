@@ -25,6 +25,85 @@ static unsigned char reset;
 
 
 //----RTOS CLASSES
+//--RTOS TASK RELATED CODE
+typedef struct task
+{
+    unsigned char running; // 1 indicates task is running
+    unsigned char priority; //1,2,3 where 1 is highest priority
+    int state; //state of machine
+    unsigned long period;
+    unsigned long elapsedTime;
+    int (*Function) (int);
+} task;
+
+const unsigned int numTasks = 3;
+const unsigned long period = 100;
+const unsigned long periodBlinkLED = 200;
+const unsigned long periodThreeLED = 400;
+const unsigned long periodTickFct_BLE_Poll = 200;
+
+enum BLE_Poll { SM1_INIT, SM1_POLL } SM1_State;
+int TickFct_BLE_Poll(int state);
+
+enum BL_states {BL0, BL1};
+int BlinkLED (int state);
+
+enum TL_states {TL0, TL1, TL2};
+int ThreeLED (int state);
+
+unsigned char B = 0;
+char led_on = 0;
+
+task tasks[3];
+
+volatile static unsigned char currentPriority = 0; //holds the priority of the currently executing task
+bool repeating_timer_callback(__unused struct repeating_timer *t) {
+    // printf("Repeat at %lld\n", time_us_64());
+    // printf("Timer tick: %d\n", );
+    unsigned char i;
+    for (i = 0; i < numTasks; i++)
+    {
+        // printf("============analysis==========: %d\n",i);
+        // printf("task:%d,priority:%d,otherp:%d,currentT:%d\n",i,tasks[i].priority,tasks[currentTask].priority,currentTask);
+        printf("Task: %d\n",i);
+        // printf("Priority: %d\n",tasks[i].priority);
+        // printf("CurrentP: %d\n",currentPriority);
+        // printf("============finished==========: %d\n",i);
+
+
+        if ((tasks[i].elapsedTime >= tasks[i].period) 
+        && (!tasks[i].running)
+        && (tasks[i].priority>=currentPriority)){
+
+            currentPriority = tasks[i].priority;
+            //DisableInterrupts()
+            // enabled = 0;
+            tasks[i].elapsedTime = 0;
+            tasks[i].running = 1;
+            //EnableInterrupts()
+            // enabled = 1;
+
+            // printf("Executing Task %d, %d\n",i,tasks[i].priority);
+            tasks[i].state = tasks[i].Function(tasks[i].state);
+            tasks[i].running = 0;
+
+            //DisableInterrupts()
+            // enabled = 0;
+            currentPriority-=1;
+            // enabled = 1;
+            //EnableInterrupts
+        }
+
+        tasks[i].elapsedTime += period;
+    }
+    currentPriority = 0;
+    led_on = ~led_on;
+
+
+    return true;
+}
+
+static struct repeating_timer timer;
 
 
 //----------BLUETOOTH RELATED CODE--------------------
@@ -291,136 +370,167 @@ unsigned char bluetooth_tx       = 0;
 short current_reading = 0;
 
 
-unsigned char writeCharacteristic()
-{
-    //This should be every 1 milisecond to obtain 1Khz
-
-
-    return(1);
-}
-unsigned char readControlSignals()
-{
-    // write to the bluetooth characteristics:
-    //- WRITE CURRENT READING
-    return(1);
-}
-short readCurrent()
-{
-    current_reading = 5;
-}
 
 // ------ BLUETOOTH RELATED STATE MACHINE INFORMATION
-enum BLE_Poll { SM1_INIT, SM1_POLL } SM1_State;
 
-int TickFct_BLE_Poll() {
-   switch(SM1_State) { // Transitions
-      case -1:
-         SM1_State = SM1_INIT;
-         break;
-         case SM1_INIT: 
-         if (1) {
-            SM1_State = SM1_POLL;
-         }
-         break;
-      case SM1_POLL: 
-         if (!reset) {
-            SM1_State = SM1_POLL;
-         }
-         else if (reset) {
-            SM1_State = SM1_INIT;
-         }
-         break;
-      default:
-         SM1_State = SM1_INIT;
-   } // Transitions
 
-   switch(SM1_State) { // State actions
-      case SM1_INIT:
-          // BLUETOOTH RELATED INITILIZATION CODE
-
-         if(cyw43_arch_init())
-             {
-                 printf("Failed to initialize Bluetooth");
-             }
-             //initialize L2CAP, security manager
-            l2cap_init();
-            sm_init();
-             // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
-         
-         
-            att_server_init(profile_data,att_read_callback,att_write_callback);
-         
-            custom_service_server_init(characteristic_current_rx,characteristic_fan_ctrl_tx,characteristic_lights_ctrl_tx,characteristic_fan_ctrl_override_tx,characteristic_lights_ctrl_override_tx,characteristic_schedule_tx);
-         
-            hci_event_callback_registration.callback = &packet_handler;
-             
-            hci_add_event_handler(&hci_event_callback_registration);
-         //
-             // register for ATT event
-            att_server_register_packet_handler(packet_handler);
-         
-             // set one-shot btstack timer
-             // heartbeat.process = &heartbeat_handler;
-             // btstack_run_loop_set_timer(&heartbeat, HEARTBEAT_PERIOD_MS);
-             // btstack_run_loop_add_timer(&heartbeat);
-             
-               // turn on bluetooth!
-            hci_power_control(HCI_POWER_ON);
-            set_characteristic_current(0);
-            set_characteristic_fan_ctrl(0);
-            set_characteristic_lights_ctrl(0);
-            set_characteristic_schedule(100);
-         
-         break;
-      case SM1_POLL:
-             async_context_poll(cyw43_arch_async_context());
-         
-         break;
-      default: // ADD default behaviour below
-      break;
-   } // State actions
-}
-//END BLUETOOTH RELATED CODE
-
-//------TIMER RELATED CODE
-short test_cnt = 0;
-char led_on = 0;
-
-bool repeating_timer_callback(__unused struct repeating_timer *t) {
-    // printf("Repeat at %lld\n", time_us_64());
-    test_cnt++;
-    if(test_cnt % 1000 == 0)
-    {
-        led_on = ~led_on;
-
-        // set_characteristic_current(led_on);
-
-        // printf("\n");
-        // printf("One second \'Samples\': %d\n",test_cnt);
-        // printf("Current Value: %d\n",*service_object.characteristic_current_value);
-        // printf("Fan Control: %s\n",service_object.characteristic_fan_ctrl_value);
-        // printf("Light Control: %s\n",service_object.characteristic_lights_ctrl_value);
-        // printf("Schedule: %s\n",service_object.characteristic_schedule_value);
-        // printf("\n");
-        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
-
-    }
-    // async_context_wait_for_work_until(cyw43_arch_async_context(), at_the_end_of_time);
-
-    return true;
-}
 int main()
 {
     
     //initialize standard in/out
     stdio_init_all();
 
+    tasks[0].state = BL0;
+    tasks[0].period = periodBlinkLED;
+    tasks[0].elapsedTime = tasks[0].period;
+    tasks[0].Function = &BlinkLED;
+    tasks[0].running = 0;
+    tasks[0].priority = 2;
 
-    struct repeating_timer timer;
-    add_repeating_timer_ms(1, repeating_timer_callback, NULL, &timer);
-    sleep_ms(3000);
+    tasks[1].state = TL0;
+    tasks[1].period = periodThreeLED;
+    tasks[1].elapsedTime = tasks[1].period;
+    tasks[1].Function = &ThreeLED;
+    tasks[1].running = 0;
+    tasks[1].priority = 1;
+
+    tasks[2].state = SM1_INIT;
+    tasks[2].period = periodTickFct_BLE_Poll;
+    tasks[2].elapsedTime = tasks[2].period;
+    tasks[2].Function = &TickFct_BLE_Poll;
+    tasks[2].running = 0;
+    tasks[2].priority = 3;
+
+
+    if(cyw43_arch_init())
+             {
+                 printf("Failed to initialize Bluetooth");
+             }
+        //initialize L2CAP, security manager
+    l2cap_init();
+    sm_init();
+        // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
     
-    while (true) {
+    
+    att_server_init(profile_data,att_read_callback,att_write_callback);
+    
+    custom_service_server_init(characteristic_current_rx,characteristic_fan_ctrl_tx,characteristic_lights_ctrl_tx,characteristic_fan_ctrl_override_tx,characteristic_lights_ctrl_override_tx,characteristic_schedule_tx);
+    
+    hci_event_callback_registration.callback = &packet_handler;
         
-    }
+    hci_add_event_handler(&hci_event_callback_registration);
+    //
+        // register for ATT event
+    att_server_register_packet_handler(packet_handler);
+    
+        // set one-shot btstack timer
+        // heartbeat.process = &heartbeat_handler;
+        // btstack_run_loop_set_timer(&heartbeat, HEARTBEAT_PERIOD_MS);
+        // btstack_run_loop_add_timer(&heartbeat);
+        
+    // turn on bluetooth!
+    hci_power_control(HCI_POWER_ON);
+    set_characteristic_current(0);
+    //status
+    set_characteristic_fan_ctrl(0);
+    set_characteristic_lights_ctrl(0);
+
+    set_characteristic_fan_ctrl_override(0);
+    set_characteristic_lights_ctrl_override(0);
+
+    set_characteristic_schedule(1);
+    
+    add_repeating_timer_us(1000000, repeating_timer_callback, NULL, &timer);  
+
+    while (true) {}//forever loop
 }
+
+//task testing code
+// Task implementations
+int BlinkLED (int state)
+{
+    switch (state)
+    {
+        case (BL0):
+            B = B & 0xE0;
+            printf("BLINK: OFF\n");
+
+            state = BL1;
+            break;
+        case (BL1):
+            B = B | 0x01;
+            printf("BLINK: ON\n");
+
+            state = BL0;
+            break;
+    }
+    return state;
+}
+
+int ThreeLED (int state)
+{
+    switch (state)
+    {
+        case (TL0):
+            B = (B & 0x01) | 0x80;
+            printf("THREE BLINK: 1\n");
+
+            state = TL1;
+            break;
+        case (TL1):
+            B = (B & 0x01) | 0x40;
+            printf("THREE BLINK: 2\n");
+
+            state = TL2;
+            break;
+        case (TL2):
+            B = (B & 0x01) | 0x20;
+            printf("THREE BLINK: 3\n");
+
+            state = TL0;
+            break;
+    }
+    return state;
+}
+
+
+int TickFct_BLE_Poll(int state) {
+    switch(SM1_State) { // Transitions
+        case SM1_INIT: 
+            if (1) {
+                SM1_State = SM1_POLL;
+
+            }
+            break;
+        case SM1_POLL: 
+            if (!reset) {
+                SM1_State = SM1_POLL;
+            }
+            else if (reset) {
+                SM1_State = SM1_INIT;
+            }
+            break;
+        default:
+            SM1_State = SM1_INIT;
+   } // Transitions
+
+    switch(SM1_State) { // State actions
+        case SM1_INIT:
+        // BLUETOOTH RELATED INITILIZATION CODE
+
+         
+        break;
+        case SM1_POLL:
+            led_on = ~led_on;
+
+            cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
+            async_context_poll(cyw43_arch_async_context());
+         
+        break;
+        default: // ADD default behaviour below
+        break;
+   } // State actions
+   return state;
+}
+//END BLUETOOTH RELATED CODE
+
