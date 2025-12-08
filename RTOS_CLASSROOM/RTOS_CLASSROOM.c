@@ -21,6 +21,10 @@
 
 #define APP_AD_FLAGS 0x06
 
+#define PICO_GPIO_5 5
+
+
+
 static unsigned char reset;
 
 
@@ -98,13 +102,13 @@ unsigned char pop_queue(queue *Q)
 }
 
 const unsigned int numTasks = 4;
-const unsigned long period = 50;
+const unsigned long period = 1;
 // const unsigned long periodBlinkLED = 200;
 // const unsigned long periodThreeLED = 400;
-const unsigned long periodTickFct_BLE_Poll = 100;
+const unsigned long periodTickFct_BLE_Poll = 10000;
 const unsigned long periodReadQueue = 500;
 const unsigned long periodWriteQueue = 200;
-const unsigned long periodCurrent = 200;
+const unsigned long periodCurrent = 100;
 
 
 
@@ -179,8 +183,8 @@ bool repeating_timer_callback(__unused struct repeating_timer *t) {
         tasks[i].elapsedTime += period;
     }
     currentPriority = 0;
-    led_on = ~led_on;
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
+    // led_on = ~led_on;
+    // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
 
 
     return true;
@@ -498,6 +502,9 @@ int main()
     //initialize standard in/out
     stdio_init_all();
 
+
+    gpio_init(5);
+    gpio_set_dir(PICO_GPIO_5,GPIO_OUT);
     // tasks[0].state = BL0;
     // tasks[0].period = periodBlinkLED;
     // tasks[0].elapsedTime = tasks[0].period;
@@ -580,7 +587,7 @@ int main()
 
     set_characteristic_schedule(1);
     
-    add_repeating_timer_us(1000000, repeating_timer_callback, NULL, &timer);  
+    add_repeating_timer_us(1, repeating_timer_callback, NULL, &timer);  
 
     while (true) {}//forever loop
 }
@@ -706,11 +713,17 @@ int TickFct_Read_Override_Queue(int state) {
             {
                 printf("ON\n");
                 // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+                gpio_put(PICO_GPIO_5,1);
+
                 
             }
             else
             {
                 printf("OFF\n");
+                // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
+                gpio_put(PICO_GPIO_5,0);
+
+
 
             }
             break;
