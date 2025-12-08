@@ -52,6 +52,7 @@ target_link_libraries(RTOS_CLASSROOM
         pico_cyw43_arch_none
         pico_btstack_ble
         pico_btstack_cyw43
+        hardware_adc
         )
 
 # Add the standard include files to the build

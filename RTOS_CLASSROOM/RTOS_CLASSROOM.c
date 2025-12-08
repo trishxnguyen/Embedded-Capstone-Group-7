@@ -2,6 +2,8 @@
 #include "bluetooth_setup.h"
 #include "btstack_config.h"
 #include <stdio.h>
+#include "hardware/adc.h"
+#include <stdint.h>          
 #include "pico/stdlib.h"
 #include "btstack.h"
 #include "pico/cyw43_arch.h"
@@ -22,6 +24,14 @@
 #define APP_AD_FLAGS 0x06
 
 #define PICO_GPIO_5 5
+
+// Constants for current sensing
+#define V_REF           3.3     // Pico ADC reference voltage
+#define ADC_RESOLUTION  4095.0  // 12-bit ADC (Pico uses 0-4095 range)
+#define OFFSET_VOLTAGE  1.65    // 0A output voltage for ACS712 (half of V_REF)
+#define SENSITIVITY     0.185   // V/A for ACS712-5A model
+
+
 
 
 
@@ -69,9 +79,11 @@ void print_queue(queue Q)
 {
     unsigned char i;
     printf("Queue Contents\n\r");
+
     for(i=0;i<4;i++)
     {
         printf("Item: %d\n\r",i);
+    
         printf("Value: %d\n\r",Q.buffer[i]);
     }
 }
@@ -582,12 +594,19 @@ int main()
     set_characteristic_fan_ctrl(1);
     set_characteristic_lights_ctrl(1);
 
-    set_characteristic_fan_ctrl_override(0);
-    set_characteristic_lights_ctrl_override(0);
+    set_characteristic_fan_ctrl_override(1);
+    set_characteristic_lights_ctrl_override(1);
 
     set_characteristic_schedule(1);
+    adc_init();
+    adc_gpio_init(26);  // Enable GP26/ADC0
+    adc_select_input(0);
     
-    add_repeating_timer_us(1, repeating_timer_callback, NULL, &timer);  
+    add_repeating_timer_us(1, repeating_timer_callback, NULL, &timer); 
+
+
+
+    
 
     while (true) {}//forever loop
 }
@@ -708,10 +727,10 @@ int TickFct_Read_Override_Queue(int state) {
         case ReadQueue_READ:
             unsigned char value =0;
             value = pop_queue(&my_queue);
-            printf("\n\nvalue = %d\n\n",value);
+            // printf("\n\nvalue = %d\n\n",value);
             if(value==49) //since this is treated as a char, '1' is 49
             {
-                printf("ON\n");
+                // printf("ON\n");
                 // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
                 gpio_put(PICO_GPIO_5,1);
 
@@ -719,7 +738,7 @@ int TickFct_Read_Override_Queue(int state) {
             }
             else
             {
-                printf("OFF\n");
+                // printf("OFF\n");
                 // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
                 gpio_put(PICO_GPIO_5,0);
 
@@ -743,12 +762,12 @@ int TickFct_Write_Override_Queue(int state) {
         case WriteQueue_PUSH: 
         if (1) {
             // print_queue(my_queue);
-            printf("PUSH\n");
+            // printf("PUSH\n");
             WriteQueue_State = WriteQueue_PUSH;
         }
          break;
       default:
-        printf("DEFAULT\n");
+        // printf("DEFAULT\n");
          WriteQueue_State = WriteQueue_Init;
    } // Transitions
 
@@ -767,9 +786,15 @@ int TickFct_Write_Override_Queue(int state) {
 }
 
 
-int get_current(int channel)
+float get_current(char adc_channel)
 {
-    printf("Getting Current\n");
+    adc_select_input(adc_channel);
+    short raw = adc_read();
+
+    float voltage = (raw / ADC_RESOLUTION) * V_REF;
+    float current = (voltage - OFFSET_VOLTAGE) / SENSITIVITY;
+    return current;
+    // printf("Getting Current\n");
 }
 
 int current_sense_tickFct(int state) {
@@ -780,6 +805,7 @@ int current_sense_tickFct(int state) {
 
     if (light_state == READING) {
         light_current = get_current(0);  // Channel 0 for light
+        printf("Light Curr: %x\n",light_current);
         light_state = PROCESSING;
     }
 
@@ -789,6 +815,8 @@ int current_sense_tickFct(int state) {
 
     if (fan_state == READING) {
         fan_current = get_current(1);  // Channel 1 for fan
+        // printf("Fan Curr: %d\n\r",fan_current);
+
         fan_state = PROCESSING;
     }
     
