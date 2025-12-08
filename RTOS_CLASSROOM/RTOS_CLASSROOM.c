@@ -36,25 +36,107 @@ typedef struct task
     int (*Function) (int);
 } task;
 
-const unsigned int numTasks = 3;
-const unsigned long period = 100;
-const unsigned long periodBlinkLED = 200;
-const unsigned long periodThreeLED = 400;
-const unsigned long periodTickFct_BLE_Poll = 200;
+
+typedef struct queue
+{
+    unsigned char buffer[4];
+    unsigned char cnt; 
+}queue;
+
+queue my_queue;
+
+// volatile static unsigned char override_value = 1;
+//queue related functions
+void initilize_queue(queue *Q)
+{
+    Q->cnt = 0; 
+}
+
+unsigned char queue_full(queue Q)
+{
+    return(Q.cnt >= 4);
+}
+unsigned char queue_empty(queue Q)
+{
+    return(Q.cnt ==0);
+}
+
+void print_queue(queue Q)
+{
+    unsigned char i;
+    printf("Queue Contents\n\r");
+    for(i=0;i<4;i++)
+    {
+        printf("Item: %d\n\r",i);
+        printf("Value: %d\n\r",Q.buffer[i]);
+    }
+}
+
+void push_queue(queue *Q, unsigned char item)
+{
+    if(!queue_full(*Q))
+    {
+        Q->buffer[Q->cnt] = item;
+        Q->cnt++;
+    }
+}
+unsigned char pop_queue(queue *Q)
+{
+    unsigned char item=0;
+    unsigned char i;
+    if(!queue_empty(*Q))
+    {
+        item = Q->buffer[0];
+        Q->cnt--;
+        for (i=0; i<Q->cnt; i++) {
+        // shift fwd
+        Q->buffer[i] = Q->buffer[i+1];
+
+      }
+    }
+    return item;
+}
+
+const unsigned int numTasks = 4;
+const unsigned long period = 50;
+// const unsigned long periodBlinkLED = 200;
+// const unsigned long periodThreeLED = 400;
+const unsigned long periodTickFct_BLE_Poll = 100;
+const unsigned long periodReadQueue = 500;
+const unsigned long periodWriteQueue = 200;
+const unsigned long periodCurrent = 200;
+
+
+
+enum ReadQueue_States { ReadQueue_Init, ReadQueue_READ, ReadQueue_PUSH } ReadQueue_State;
+int TickFct_Read_Override_Queue(int state);
+
+enum WriteQueue_States { WriteQueue_Init, WriteQueue_READ, WriteQueue_PUSH } WriteQueue_State;
+int TickFct_Write_Override_Queue(int state);
 
 enum BLE_Poll { SM1_INIT, SM1_POLL } SM1_State;
 int TickFct_BLE_Poll(int state);
 
-enum BL_states {BL0, BL1};
-int BlinkLED (int state);
+//current sensing states
 
-enum TL_states {TL0, TL1, TL2};
-int ThreeLED (int state);
+unsigned short light_current = 0.0;
+unsigned short  fan_current = 0.0;
+
+typedef enum {IDLE, READING, PROCESSING, DONE} state_t;
+state_t light_state = IDLE;
+state_t fan_state = IDLE;
+
+int current_sense_tickFct(int state);
+// enum BL_states {BL0, BL1};
+// int BlinkLED (int state);
+
+// enum TL_states {TL0, TL1, TL2};
+// int ThreeLED (int state);
 
 unsigned char B = 0;
 char led_on = 0;
 
-task tasks[3];
+task tasks[4];
 
 volatile static unsigned char currentPriority = 0; //holds the priority of the currently executing task
 bool repeating_timer_callback(__unused struct repeating_timer *t) {
@@ -65,7 +147,7 @@ bool repeating_timer_callback(__unused struct repeating_timer *t) {
     {
         // printf("============analysis==========: %d\n",i);
         // printf("task:%d,priority:%d,otherp:%d,currentT:%d\n",i,tasks[i].priority,tasks[currentTask].priority,currentTask);
-        printf("Task: %d\n",i);
+        // printf("Task: %d\n",i);
         // printf("Priority: %d\n",tasks[i].priority);
         // printf("CurrentP: %d\n",currentPriority);
         // printf("============finished==========: %d\n",i);
@@ -98,6 +180,7 @@ bool repeating_timer_callback(__unused struct repeating_timer *t) {
     }
     currentPriority = 0;
     led_on = ~led_on;
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
 
 
     return true;
@@ -156,6 +239,28 @@ static uint16_t att_read_callback(hci_con_handle_t con_handle, uint16_t attribut
 
         return att_read_callback_handle_blob(service_object.characteristic_fan_ctrl_user_description,strlen(service_object.characteristic_fan_ctrl_user_description), offset, buffer, buffer_size);
     }
+    //-----
+// fan_ctrl_override
+//FAN CONTROL
+    if(attribute_handle == service_object.characteristic_fan_ctrl_override_handle)
+    {
+    printf("READING-------------------------------\n");
+
+        return att_read_callback_handle_blob(service_object.characteristic_fan_ctrl_override_value, strlen(service_object.characteristic_fan_ctrl_override_value), offset, buffer, buffer_size);
+    }
+    if(attribute_handle == service_object.characteristic_fan_ctrl_override_configuration_handle)
+    {
+    printf("READING-------------------------------\n");
+
+        return att_read_callback_handle_little_endian_16(service_object.characteristic_fan_ctrl_override_client_configuration, offset, buffer, buffer_size);
+    }
+    if(attribute_handle == service_object.characteristic_fan_ctrl_override_user_description_handle)
+    {
+    printf("READING-------------------------------\n");
+
+        return att_read_callback_handle_blob(service_object.characteristic_fan_ctrl_override_user_description,strlen(service_object.characteristic_fan_ctrl_override_user_description), offset, buffer, buffer_size);
+    }
+    //-------
     // LIGHT CONTROL
     if(attribute_handle == service_object.characteristic_lights_ctrl_handle)
     {
@@ -273,10 +378,23 @@ static int att_write_callback(hci_con_handle_t con_handle, uint16_t attribute_ha
             instance->callback_lights_ctrl.context = (void*) instance;
             att_server_register_can_send_now_callback(&instance->callback_lights_ctrl, instance->con_handle);
         }
-    
 
-        //Alert application of bluetooth rx
+    }
+    if(attribute_handle == service_object.characteristic_fan_ctrl_override_handle)
+    {
+        printf("Inside fan handler\n");
 
+        custom_service * instance = &service_object;
+        buffer[buffer_size] = 0;
+        memset(service_object.characteristic_fan_ctrl_override_value, 0, strlen(service_object.characteristic_fan_ctrl_override_value));
+        memcpy(service_object.characteristic_fan_ctrl_override_value, buffer, strlen(buffer));
+
+        if(instance->characteristic_fan_ctrl_override_configuration_handle)
+        {
+            instance->callback_fan_ctrl_override.callback = &characteristic_fan_ctrl_override_callback;
+            instance->callback_fan_ctrl_override.context = (void*) instance;
+            att_server_register_can_send_now_callback(&instance->callback_fan_ctrl_override, instance->con_handle);
+        }
     }
     
         
@@ -380,26 +498,48 @@ int main()
     //initialize standard in/out
     stdio_init_all();
 
-    tasks[0].state = BL0;
-    tasks[0].period = periodBlinkLED;
+    // tasks[0].state = BL0;
+    // tasks[0].period = periodBlinkLED;
+    // tasks[0].elapsedTime = tasks[0].period;
+    // tasks[0].Function = &BlinkLED;
+    // tasks[0].running = 0;
+    // tasks[0].priority = 2;
+
+    // tasks[1].state = TL0;
+    // tasks[1].period = periodThreeLED;
+    // tasks[1].elapsedTime = tasks[1].period;
+    // tasks[1].Function = &ThreeLED;
+    // tasks[1].running = 0;
+    // tasks[1].priority = 1;
+
+    tasks[0].state = SM1_INIT;
+    tasks[0].period = periodTickFct_BLE_Poll;
     tasks[0].elapsedTime = tasks[0].period;
-    tasks[0].Function = &BlinkLED;
+    tasks[0].Function = &TickFct_BLE_Poll;
     tasks[0].running = 0;
-    tasks[0].priority = 2;
+    tasks[0].priority = 4;
 
-    tasks[1].state = TL0;
-    tasks[1].period = periodThreeLED;
+    tasks[1].state = ReadQueue_Init;
+    tasks[1].period = periodReadQueue;
     tasks[1].elapsedTime = tasks[1].period;
-    tasks[1].Function = &ThreeLED;
+    tasks[1].Function = &TickFct_Read_Override_Queue;
     tasks[1].running = 0;
-    tasks[1].priority = 1;
+    tasks[1].priority = 3;
 
-    tasks[2].state = SM1_INIT;
-    tasks[2].period = periodTickFct_BLE_Poll;
+    tasks[2].state = WriteQueue_Init;
+    tasks[2].period = periodWriteQueue;
     tasks[2].elapsedTime = tasks[2].period;
-    tasks[2].Function = &TickFct_BLE_Poll;
+    tasks[2].Function = &TickFct_Write_Override_Queue;
     tasks[2].running = 0;
-    tasks[2].priority = 3;
+    tasks[2].priority = 2;
+
+    tasks[3].state = IDLE;
+    tasks[3].period = periodCurrent;
+    tasks[3].elapsedTime = tasks[3].period;
+    tasks[3].Function = &current_sense_tickFct;
+    tasks[3].running = 0;
+    tasks[3].priority = 1;
+
 
 
     if(cyw43_arch_init())
@@ -430,10 +570,10 @@ int main()
         
     // turn on bluetooth!
     hci_power_control(HCI_POWER_ON);
-    set_characteristic_current(0);
+    set_characteristic_current(10);
     //status
-    set_characteristic_fan_ctrl(0);
-    set_characteristic_lights_ctrl(0);
+    set_characteristic_fan_ctrl(1);
+    set_characteristic_lights_ctrl(1);
 
     set_characteristic_fan_ctrl_override(0);
     set_characteristic_lights_ctrl_override(0);
@@ -447,6 +587,7 @@ int main()
 
 //task testing code
 // Task implementations
+/*
 int BlinkLED (int state)
 {
     switch (state)
@@ -493,7 +634,7 @@ int ThreeLED (int state)
     return state;
 }
 
-
+*/
 int TickFct_BLE_Poll(int state) {
     switch(SM1_State) { // Transitions
         case SM1_INIT: 
@@ -523,7 +664,8 @@ int TickFct_BLE_Poll(int state) {
         case SM1_POLL:
             led_on = ~led_on;
 
-            cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
+            // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
+
             async_context_poll(cyw43_arch_async_context());
          
         break;
@@ -533,4 +675,127 @@ int TickFct_BLE_Poll(int state) {
    return state;
 }
 //END BLUETOOTH RELATED CODE
+
+int TickFct_Read_Override_Queue(int state) {
+   switch(ReadQueue_State) { // Transitions
+        case ReadQueue_Init: 
+        if (1) {
+            ReadQueue_State = ReadQueue_READ;
+        }
+        break;
+        case ReadQueue_READ: 
+        if (1) {
+            // printf("READ\n");
+            ReadQueue_State = ReadQueue_READ;
+        }
+        break;
+      default:
+        // printf("DEFAULT\n");
+         ReadQueue_State = ReadQueue_Init;
+   } // Transitions
+
+    switch(ReadQueue_State) { // State actions
+        case ReadQueue_Init:
+            initilize_queue(&my_queue);
+            break;
+        case ReadQueue_READ:
+            unsigned char value =0;
+            value = pop_queue(&my_queue);
+            printf("\n\nvalue = %d\n\n",value);
+            if(value==49) //since this is treated as a char, '1' is 49
+            {
+                printf("ON\n");
+                // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+                
+            }
+            else
+            {
+                printf("OFF\n");
+
+            }
+            break;
+        default: // ADD default behaviour below
+        break;
+   } // State actions
+   return state;
+}
+
+int TickFct_Write_Override_Queue(int state) {
+   switch(WriteQueue_State) { // Transitions
+        case WriteQueue_Init: 
+        if (1) {
+            WriteQueue_State = WriteQueue_PUSH;
+        }
+        break;
+        case WriteQueue_PUSH: 
+        if (1) {
+            // print_queue(my_queue);
+            printf("PUSH\n");
+            WriteQueue_State = WriteQueue_PUSH;
+        }
+         break;
+      default:
+        printf("DEFAULT\n");
+         WriteQueue_State = WriteQueue_Init;
+   } // Transitions
+
+    switch(WriteQueue_State) { // State actions
+        case WriteQueue_Init:
+            initilize_queue(&my_queue);
+            break;
+        case WriteQueue_PUSH:
+            unsigned char override_value = *service_object.characteristic_fan_ctrl_override_value;
+            push_queue(&my_queue,override_value);
+            break;
+        default: // ADD default behaviour below
+        break;
+   } // State actions
+   return state;
+}
+
+
+int get_current(int channel)
+{
+    printf("Getting Current\n");
+}
+
+int current_sense_tickFct(int state) {
+    if (light_state == IDLE && fan_state == IDLE) {
+        // Prioritize light reading first
+        light_state = READING;
+    }
+
+    if (light_state == READING) {
+        light_current = get_current(0);  // Channel 0 for light
+        light_state = PROCESSING;
+    }
+
+    if (fan_state == IDLE && light_state != READING) {
+        fan_state = READING;
+    }
+
+    if (fan_state == READING) {
+        fan_current = get_current(1);  // Channel 1 for fan
+        fan_state = PROCESSING;
+    }
+    
+    if (light_state == PROCESSING) {
+        // Process the light current 
+        light_state = DONE;
+    }
+
+    if (fan_state == PROCESSING) {
+        // Process the fan current
+        fan_state = DONE;
+    }
+
+    if (light_state == DONE && fan_state == DONE) {
+        // Both state machines are done, reset to IDLE
+        light_state = IDLE;
+        fan_state = IDLE;
+    }
+    return state;
+}
+
+
 
