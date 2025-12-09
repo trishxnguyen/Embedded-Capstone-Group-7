@@ -135,7 +135,7 @@ int TickFct_BLE_Poll(int state);
 
 //current sensing states
 
-float light_current = 0.0;
+uint32_t light_current = 0.0;
 float  fan_current = 0.0;
 
 typedef enum {IDLE, READING, PROCESSING, DONE} state_t;
@@ -731,7 +731,7 @@ int TickFct_Read_Override_Queue(int state) {
             if(value==49) //since this is treated as a char, '1' is 49
             {
                 // printf("ON\n");
-                // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+                // cyw43_arch_gpio_put(CYW43_L_GPIO_LED_PIN, 1);
                 gpio_put(PICO_GPIO_5,1);
 
                 
@@ -789,19 +789,27 @@ int TickFct_Write_Override_Queue(int state) {
 float get_current(char adc_channel)
 {
     adc_select_input(adc_channel);
-    unsigned int raw = adc_read();
+    signed long raw = adc_read();
+    const float conversion_factor = 3.3f / (1 << 12);
+
     // printf("Raw: %x\r\n",raw);
+    signed long result = ((uint32_t) raw);
+    printf("Raw value: 0x%03d, voltage: %f V\n", result, result * conversion_factor);
 
-    unsigned int voltage = (long)(raw / ADC_RESOLUTION) * V_REF;
-    printf("Voltage: %d\r\n",raw);
-    printf("Voltage (Hex): %x\r\n",raw);
+    // signed long voltage = ((uint32_t) raw * V_REF)/ ADC_RESOLUTION;
+    // printf("Voltage: %d\r\n",voltage);
+    // printf("Voltage (Hex): %x\r\n",raw);
 
 
-    unsigned int current = (long)(voltage - OFFSET_VOLTAGE) / SENSITIVITY;
-    printf("Current: %x A\r\n",current);
+    // uint16_t current = (long)(voltage - OFFSET_VOLTAGE) / SENSITIVITY;
+    // signed long result = (voltage - OFFSET_VOLTAGE) / SENSITIVITY;
+    // printf("voltage: %d A\r\n",voltage);
+    // printf("SENSITIVITY: %d A\r\n",SENSITIVITY);
+
+    // printf("result: %d A\r\n",result);
     // printf("Current: %d A\r\n",current);
 
-    return current;
+    return result;
     // printf("Getting Current\n");
 }
 
@@ -823,7 +831,7 @@ int current_sense_tickFct(int state) {
     }
 
     if (fan_state == READING) {
-        fan_current = get_current(1);  // Channel 1 for fan
+        // fan_current = get_current(1);  // Channel 1 for fan
         // printf("Fan Curr: %d\n\r",fan_current);
 
         fan_state = PROCESSING;
