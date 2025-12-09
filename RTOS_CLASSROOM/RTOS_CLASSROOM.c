@@ -786,7 +786,10 @@ int TickFct_Write_Override_Queue(int state) {
 }
 
 volatile static unsigned long cnt = 0;
-volatile static double cumulative_sum;
+
+//FOR SAMPLING OF 2kHz, a cumulativ
+volatile static long double cumulative_sum;
+volatile static float avg_current; //mili amps
 
 float get_current(char adc_channel)
 {
@@ -798,14 +801,16 @@ float get_current(char adc_channel)
 
     // printf("Raw: %x\r\n",raw);
     uint16_t result = ((uint32_t) raw);
-    float converted = 2.5f - ((result * 5.0) / 1024.0)/0.100;
+    // float converted = OFFSET_VOLTAGE - ((result * 5.0) / ADC_RESOLUTION)/SENSITIVITY;
+    float converted = ((uint32_t) raw * V_REF)/ ADC_RESOLUTION;
     cumulative_sum+=converted;
 
     if(cnt%15000==0)
     {
         printf("cnt: %d\n",cnt);
+        avg_current = (cumulative_sum/15000)*100;
         // printf("Raw value: 0x%03d, current: %f A\n", result, converted);
-        printf("Avg Current: %f A\n", cumulative_sum/15000);
+        printf("Avg Current: %f A\n", avg_current);
         cumulative_sum=0;
 
     }
