@@ -9,6 +9,8 @@
 #include "pico/cyw43_arch.h"
 #include "pico/btstack_cyw43.h"
 #include "pico/sync.h"
+#include "hardware/gpio.h"
+#include "hardware/uart.h"
 
 
 // Pico W devices use a GPIO on the WIFI chip for the LED,
@@ -32,8 +34,27 @@
 #define OFFSET_VOLTAGE  1.65    // 0A output voltage for ACS712 (half of V_REF)
 #define SENSITIVITY     0.185   // V/A for ACS712-5A model
 
+// pin assignment
+#define IR_PIN 16
+#define UART_ID uart0
+#define BAUD_RATE 115200
+#define UART_TX_PIN 0
+#define UART_RX_PIN 1
+ 
+volatile unsigned char motion_state = 0;      // motion_state[1] = motion & motion_state[0] = no motion
+volatile unsigned char state_changed = 0;   
+volatile unsigned char MotionSens = 0;  // volatile = tells compiler the value can change unexpectedly
 
-
+// callback function
+void ir_callback(uint gpio, uint32_t events) {
+ 
+    unsigned char new_state = (gpio_get(IR_PIN) == 0);  // low triggered sensor (0 = motion detected in this case)
+ 
+    if (new_state != motion_state) {
+        motion_state = new_state;
+        state_changed = 1;   // notify main loop we changed states
+    }
+}
 
 
 static unsigned char reset;
@@ -515,24 +536,27 @@ int main()
     //initialize standard in/out
     stdio_init_all();
 
+        // UART setup
+    uart_init(UART_ID, BAUD_RATE);
+    gpio_set_function(UART_TX_PIN, GPIO_FUNC_UART);
+    gpio_set_function(UART_RX_PIN, GPIO_FUNC_UART);
+    uart_puts(UART_ID, "UART ready...\n");
+ 
+    // IR setup
+    gpio_init(IR_PIN);
+    gpio_set_dir(IR_PIN, GPIO_IN);
+    gpio_pull_up(IR_PIN);
+ 
+    // linking callback to the hardware interrupt
+    gpio_set_irq_enabled_with_callback(
+        IR_PIN,
+        GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE,
+        1,
+        &ir_callback
+    );
 
     gpio_init(5);
     gpio_set_dir(PICO_GPIO_5,GPIO_OUT);
-    // gpio_set_dir(PICO_GPIO_5,GPIO_OUT);
-
-    // tasks[0].state = BL0;
-    // tasks[0].period = periodBlinkLED;
-    // tasks[0].elapsedTime = tasks[0].period;
-    // tasks[0].Function = &BlinkLED;
-    // tasks[0].running = 0;
-    // tasks[0].priority = 2;
-
-    // tasks[1].state = TL0;
-    // tasks[1].period = periodThreeLED;
-    // tasks[1].elapsedTime = tasks[1].period;
-    // tasks[1].Function = &ThreeLED;
-    // tasks[1].running = 0;
-    // tasks[1].priority = 1;
 
     tasks[0].state = SM1_INIT;
     tasks[0].period = periodTickFct_BLE_Poll;
@@ -611,59 +635,31 @@ int main()
 
     
 
-    while (true) {}//forever loop
+    while (true) { 
+
+        //printing to terminal when motion is detected
+        if (state_changed) {
+            state_changed = 0;
+ 
+            if (motion_state) {
+                MotionSens = 1;
+                printf("Motion detected\n");
+                uart_puts(UART_ID, "motion\n");
+            } else {
+                MotionSens = 0;
+                printf("No motion\n");
+                uart_puts(UART_ID, "nothing\n");
+            }
+        }
+ 
+        //showing from the uart perspective (proof the uart is working)
+        while (uart_is_readable(UART_ID)) {
+            char c = uart_getc(UART_ID);
+            printf("%c", c);     
+        } sleep_ms(10);
+    }//forever loop
 }
 
-//task testing code
-// Task implementations
-/*
-int BlinkLED (int state)
-{
-    switch (state)
-    {
-        case (BL0):
-            B = B & 0xE0;
-            printf("BLINK: OFF\n");
-
-            state = BL1;
-            break;
-        case (BL1):
-            B = B | 0x01;
-            printf("BLINK: ON\n");
-
-            state = BL0;
-            break;
-    }
-    return state;
-}
-
-int ThreeLED (int state)
-{
-    switch (state)
-    {
-        case (TL0):
-            B = (B & 0x01) | 0x80;
-            printf("THREE BLINK: 1\n");
-
-            state = TL1;
-            break;
-        case (TL1):
-            B = (B & 0x01) | 0x40;
-            printf("THREE BLINK: 2\n");
-
-            state = TL2;
-            break;
-        case (TL2):
-            B = (B & 0x01) | 0x20;
-            printf("THREE BLINK: 3\n");
-
-            state = TL0;
-            break;
-    }
-    return state;
-}
-
-*/
 int TickFct_BLE_Poll(int state) {
     switch(SM1_State) { // Transitions
         case SM1_INIT: 
@@ -745,8 +741,6 @@ int TickFct_Read_Override_Queue(int state) {
                 // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
                 gpio_put(PICO_GPIO_5,0);
 
-
-
             }
             break;
         default: // ADD default behaviour below
@@ -813,7 +807,7 @@ float get_current(char adc_channel)
         printf("cnt: %d\n",cnt);
         avg_current = (cumulative_sum/15000)*100;
         // printf("Raw value: 0x%03d, current: %f A\n", result, converted);
-        printf("Avg Current: %f A\n", avg_current);
+        printf("Avg Current: %f mA\n", avg_current);
         cumulative_sum=0;
 
     }

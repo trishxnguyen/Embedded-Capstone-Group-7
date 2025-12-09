@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "lldb",
+      "request": "launch",
+      "args": [],
+      "cwd": "/Users/trishnguyen/Documents/GitHub/Embedded-Capstone-Group-7/RTOS_CLASSROOM",
+      "program": "/Users/trishnguyen/Documents/GitHub/Embedded-Capstone-Group-7/RTOS_CLASSROOM/build/Debug/outDebug"
+    }
+  ]
+}
