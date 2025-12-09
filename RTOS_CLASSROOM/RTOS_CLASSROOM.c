@@ -120,7 +120,7 @@ const unsigned long period = 1;
 const unsigned long periodTickFct_BLE_Poll = 10000;
 const unsigned long periodReadQueue = 500;
 const unsigned long periodWriteQueue = 200;
-const unsigned long periodCurrent = 100;
+const unsigned long periodCurrent = 100000;
 
 
 
@@ -135,8 +135,8 @@ int TickFct_BLE_Poll(int state);
 
 //current sensing states
 
-unsigned short light_current = 0.0;
-unsigned short  fan_current = 0.0;
+float light_current = 0.0;
+float  fan_current = 0.0;
 
 typedef enum {IDLE, READING, PROCESSING, DONE} state_t;
 state_t light_state = IDLE;
@@ -789,10 +789,18 @@ int TickFct_Write_Override_Queue(int state) {
 float get_current(char adc_channel)
 {
     adc_select_input(adc_channel);
-    short raw = adc_read();
+    unsigned int raw = adc_read();
+    // printf("Raw: %x\r\n",raw);
 
-    float voltage = (raw / ADC_RESOLUTION) * V_REF;
-    float current = (voltage - OFFSET_VOLTAGE) / SENSITIVITY;
+    unsigned int voltage = (long)(raw / ADC_RESOLUTION) * V_REF;
+    printf("Voltage: %d\r\n",raw);
+    printf("Voltage (Hex): %x\r\n",raw);
+
+
+    unsigned int current = (long)(voltage - OFFSET_VOLTAGE) / SENSITIVITY;
+    printf("Current: %x A\r\n",current);
+    // printf("Current: %d A\r\n",current);
+
     return current;
     // printf("Getting Current\n");
 }
@@ -805,7 +813,8 @@ int current_sense_tickFct(int state) {
 
     if (light_state == READING) {
         light_current = get_current(0);  // Channel 0 for light
-        printf("Light Curr: %x\n",light_current);
+        printf("Current: %.2f A\r\n",light_current);
+;
         light_state = PROCESSING;
     }
 
