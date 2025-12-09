@@ -117,10 +117,10 @@ const unsigned int numTasks = 4;
 const unsigned long period = 1;
 // const unsigned long periodBlinkLED = 200;
 // const unsigned long periodThreeLED = 400;
-const unsigned long periodTickFct_BLE_Poll = 10000;
+const unsigned long periodTickFct_BLE_Poll = 100;
 const unsigned long periodReadQueue = 500;
 const unsigned long periodWriteQueue = 200;
-const unsigned long periodCurrent = 100000;
+const unsigned long periodCurrent = 250; //2000 khz
 
 
 
@@ -785,23 +785,36 @@ int TickFct_Write_Override_Queue(int state) {
    return state;
 }
 
+volatile static unsigned long cnt = 0;
+volatile static double cumulative_sum;
 
 float get_current(char adc_channel)
 {
+    cnt+=1;
     adc_select_input(adc_channel);
-    signed long raw = adc_read();
-    const float conversion_factor = 3.3f / (1 << 12);
+    uint16_t raw = adc_read();
+    const float conversion_factor = 5.0f / (1 << 12);
+    // (2.5 - (AvgAcs * (5.0 / 1024.0)) )/0.066
 
     // printf("Raw: %x\r\n",raw);
-    signed long result = ((uint32_t) raw);
-    printf("Raw value: 0x%03d, voltage: %f V\n", result, result * conversion_factor);
+    uint16_t result = ((uint32_t) raw);
+    float converted = 2.5f - ((result * 5.0) / 1024.0)/0.100;
+    cumulative_sum+=converted;
 
-    // signed long voltage = ((uint32_t) raw * V_REF)/ ADC_RESOLUTION;
+    if(cnt%15000==0)
+    {
+        printf("cnt: %d\n",cnt);
+        // printf("Raw value: 0x%03d, current: %f A\n", result, converted);
+        printf("Avg Current: %f A\n", cumulative_sum/15000);
+        cumulative_sum=0;
+
+    }
+    uint32_t voltage = ((uint32_t) raw * V_REF)/ ADC_RESOLUTION;
     // printf("Voltage: %d\r\n",voltage);
     // printf("Voltage (Hex): %x\r\n",raw);
 
 
-    // uint16_t current = (long)(voltage - OFFSET_VOLTAGE) / SENSITIVITY;
+    uint32_t current = (long)(voltage - OFFSET_VOLTAGE) / SENSITIVITY;
     // signed long result = (voltage - OFFSET_VOLTAGE) / SENSITIVITY;
     // printf("voltage: %d A\r\n",voltage);
     // printf("SENSITIVITY: %d A\r\n",SENSITIVITY);
@@ -821,7 +834,7 @@ int current_sense_tickFct(int state) {
 
     if (light_state == READING) {
         light_current = get_current(0);  // Channel 0 for light
-        printf("Current: %.2f A\r\n",light_current);
+        // printf("Current: %.2f A\r\n",light_current);
 ;
         light_state = PROCESSING;
     }
