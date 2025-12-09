@@ -24,6 +24,7 @@
 #define APP_AD_FLAGS 0x06
 
 #define PICO_GPIO_5 5
+#define PICO_GPIO_6 6
 
 // Constants for current sensing
 #define V_REF           3.3     // Pico ADC reference voltage
@@ -517,6 +518,8 @@ int main()
 
     gpio_init(5);
     gpio_set_dir(PICO_GPIO_5,GPIO_OUT);
+    // gpio_set_dir(PICO_GPIO_5,GPIO_OUT);
+
     // tasks[0].state = BL0;
     // tasks[0].period = periodBlinkLED;
     // tasks[0].elapsedTime = tasks[0].period;
