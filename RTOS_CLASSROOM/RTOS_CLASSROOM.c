@@ -178,49 +178,27 @@ task tasks[4];
 
 volatile static unsigned char currentPriority = 0; //holds the priority of the currently executing task
 bool repeating_timer_callback(__unused struct repeating_timer *t) {
-    // printf("Repeat at %lld\n", time_us_64());
-    // printf("Timer tick: %d\n", );
     unsigned char i;
     for (i = 0; i < numTasks; i++)
     {
-        // printf("============analysis==========: %d\n",i);
-        // printf("task:%d,priority:%d,otherp:%d,currentT:%d\n",i,tasks[i].priority,tasks[currentTask].priority,currentTask);
-        // printf("Task: %d\n",i);
-        // printf("Priority: %d\n",tasks[i].priority);
-        // printf("CurrentP: %d\n",currentPriority);
-        // printf("============finished==========: %d\n",i);
-
-
         if ((tasks[i].elapsedTime >= tasks[i].period) 
         && (!tasks[i].running)
         && (tasks[i].priority>=currentPriority)){
 
             currentPriority = tasks[i].priority;
-            //DisableInterrupts()
-            // enabled = 0;
             tasks[i].elapsedTime = 0;
             tasks[i].running = 1;
-            //EnableInterrupts()
-            // enabled = 1;
 
             // printf("Executing Task %d, %d\n",i,tasks[i].priority);
             tasks[i].state = tasks[i].Function(tasks[i].state);
             tasks[i].running = 0;
 
-            //DisableInterrupts()
-            // enabled = 0;
             currentPriority-=1;
-            // enabled = 1;
-            //EnableInterrupts
         }
 
         tasks[i].elapsedTime += period;
     }
     currentPriority = 0;
-    // led_on = ~led_on;
-    // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
-
-
     return true;
 }
 
@@ -236,8 +214,6 @@ static uint16_t att_read_callback(hci_con_handle_t con_handle, uint16_t attribut
     printf("Con Handle: %x\n",con_handle);
     printf("Offset: %x\n",offset);
     printf("Current Handle: %x\n",service_object.characteristic_current_handle);
-    printf("Fan Handle: %x\n",service_object.characteristic_fan_ctrl_handle);
-    printf("Light Handle: %x\n",service_object.characteristic_lights_ctrl_handle);
 
     //CURRENT
     if(attribute_handle == service_object.characteristic_current_handle)
@@ -258,26 +234,7 @@ static uint16_t att_read_callback(hci_con_handle_t con_handle, uint16_t attribut
 
         return att_read_callback_handle_blob(service_object.characteristic_current_user_description,strlen(service_object.characteristic_current_user_description), offset, buffer, buffer_size);
     }
-    //FAN CONTROL
-    if(attribute_handle == service_object.characteristic_fan_ctrl_handle)
-    {
-    printf("READING-------------------------------\n");
-
-        return att_read_callback_handle_blob(service_object.characteristic_fan_ctrl_value, strlen(service_object.characteristic_fan_ctrl_value), offset, buffer, buffer_size);
-    }
-    if(attribute_handle == service_object.characteristic_fan_ctrl_configuration_handle)
-    {
-    printf("READING-------------------------------\n");
-
-        return att_read_callback_handle_little_endian_16(service_object.characteristic_fan_ctrl_client_configuration, offset, buffer, buffer_size);
-    }
-    if(attribute_handle == service_object.characteristic_fan_ctrl_user_description_handle)
-    {
-    printf("READING-------------------------------\n");
-
-        return att_read_callback_handle_blob(service_object.characteristic_fan_ctrl_user_description,strlen(service_object.characteristic_fan_ctrl_user_description), offset, buffer, buffer_size);
-    }
-    //-----
+        //-----
 // fan_ctrl_override
 //FAN CONTROL
     if(attribute_handle == service_object.characteristic_fan_ctrl_override_handle)
@@ -299,40 +256,6 @@ static uint16_t att_read_callback(hci_con_handle_t con_handle, uint16_t attribut
         return att_read_callback_handle_blob(service_object.characteristic_fan_ctrl_override_user_description,strlen(service_object.characteristic_fan_ctrl_override_user_description), offset, buffer, buffer_size);
     }
     //-------
-    // LIGHT CONTROL
-    if(attribute_handle == service_object.characteristic_lights_ctrl_handle)
-    {
-    printf("READING-------------------------------\n");
-
-        return att_read_callback_handle_blob(service_object.characteristic_lights_ctrl_value, strlen(service_object.characteristic_lights_ctrl_value), offset, buffer, buffer_size);
-    }
-    if(attribute_handle == service_object.characteristic_lights_ctrl_configuration_handle)
-    {
-    printf("READING-------------------------------\n");
-
-        return att_read_callback_handle_little_endian_16(service_object.characteristic_lights_ctrl_client_configuration, offset, buffer, buffer_size);
-    }
-    if(attribute_handle == service_object.characteristic_lights_ctrl_user_description_handle)
-    {
-        return att_read_callback_handle_blob(service_object.characteristic_lights_ctrl_user_description,strlen(service_object.characteristic_lights_ctrl_user_description), offset, buffer, buffer_size);
-    }
-
-    // SCHEDULE
-    if(attribute_handle == service_object.characteristic_schedule_handle)
-    {
-    printf("READING-------------------------------\n");
-
-        return att_read_callback_handle_blob(service_object.characteristic_schedule_value, strlen(service_object.characteristic_schedule_value), offset, buffer, buffer_size);
-    }
-    if(attribute_handle == service_object.characteristic_schedule_configuration_handle)
-    {
-        return att_read_callback_handle_little_endian_16(service_object.characteristic_schedule_client_configuration, offset, buffer, buffer_size);
-    }
-    if(attribute_handle == service_object.characteristic_schedule_user_description_handle)
-    {
-        return att_read_callback_handle_blob(service_object.characteristic_schedule_user_description,strlen(service_object.characteristic_schedule_user_description), offset, buffer, buffer_size);
-    }
-
     return 0;
 }
 
@@ -354,9 +277,7 @@ static int att_write_callback(hci_con_handle_t con_handle, uint16_t attribute_ha
 
     printf("Current Handle: %x\n",service_object.characteristic_current_handle);
 
-    printf("Fan Handle: %x\n",service_object.characteristic_fan_ctrl_handle);
-
-    printf("Light Handle: %x\n",service_object.characteristic_lights_ctrl_handle);
+    printf("Fan Handle: %x\n",service_object.characteristic_fan_ctrl_override_value);
 
     //If current service config is set to NOTIFY
     if(attribute_handle == ATT_CHARACTERISTIC_3727f058_69dd_4d78_9b6f_9c2ebbb67d44_01_VALUE_HANDLE)
@@ -379,44 +300,6 @@ static int att_write_callback(hci_con_handle_t con_handle, uint16_t attribute_ha
             instance->callback_current.context = (void*) instance;
             att_server_register_can_send_now_callback(&instance->callback_current, instance->con_handle);
         }
-    }
-    if(attribute_handle== ATT_CHARACTERISTIC_74d31fe2_71d3_41c5_aa94_f15f9f61f3c7_01_VALUE_HANDLE)
-    {
-        printf("WRITING-------------------------------\n");
-
-        custom_service * instance = &service_object;
-        buffer[buffer_size] = 0;
-        printf("Inside fan handler\n");
-        memset(service_object.characteristic_fan_ctrl_value, 0, strlen(service_object.characteristic_fan_ctrl_value));
-        memcpy(service_object.characteristic_fan_ctrl_value, buffer, strlen(buffer));
-
-        if(instance->characteristic_fan_ctrl_configuration_handle)
-        {
-            instance->callback_fan_ctrl.callback = &characteristic_fan_ctrl_callback;
-            instance->callback_fan_ctrl.context = (void*) instance;
-            att_server_register_can_send_now_callback(&instance->callback_fan_ctrl, instance->con_handle);
-        }
-    
-
-        //Alert application of bluetooth rx
-
-    }
-    if(attribute_handle== service_object.characteristic_lights_ctrl_handle)
-    {
-        printf("Inside fan handler\n");
-
-        custom_service * instance = &service_object;
-        buffer[buffer_size] = 0;
-        memset(service_object.characteristic_lights_ctrl_value, 0, strlen(service_object.characteristic_lights_ctrl_value));
-        memcpy(service_object.characteristic_lights_ctrl_value, buffer, strlen(buffer));
-
-        if(instance->characteristic_lights_ctrl_configuration_handle)
-        {
-            instance->callback_lights_ctrl.callback = &characteristic_lights_ctrl_callback;
-            instance->callback_lights_ctrl.context = (void*) instance;
-            att_server_register_can_send_now_callback(&instance->callback_lights_ctrl, instance->con_handle);
-        }
-
     }
     if(attribute_handle == service_object.characteristic_fan_ctrl_override_handle)
     {
@@ -600,7 +483,7 @@ int main()
     
     att_server_init(profile_data,att_read_callback,att_write_callback);
     
-    custom_service_server_init(characteristic_current_rx,characteristic_fan_ctrl_tx,characteristic_lights_ctrl_tx,characteristic_fan_ctrl_override_tx,characteristic_lights_ctrl_override_tx,characteristic_schedule_tx);
+    custom_service_server_init(characteristic_current_rx,characteristic_fan_ctrl_override_tx);
     
     hci_event_callback_registration.callback = &packet_handler;
         
@@ -618,13 +501,8 @@ int main()
     hci_power_control(HCI_POWER_ON);
     set_characteristic_current(10);
     //status
-    set_characteristic_fan_ctrl(1);
-    set_characteristic_lights_ctrl(1);
 
     set_characteristic_fan_ctrl_override(1);
-    set_characteristic_lights_ctrl_override(1);
-
-    set_characteristic_schedule(1);
     adc_init();
     adc_gpio_init(26);  // Enable GP26/ADC0
     adc_select_input(0);
