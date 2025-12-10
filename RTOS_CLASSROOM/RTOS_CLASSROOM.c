@@ -669,11 +669,8 @@ int TickFct_BLE_Poll(int state) {
             }
             break;
         case SM1_POLL: 
-            if (!reset) {
+            if (1) {
                 SM1_State = SM1_POLL;
-            }
-            else if (reset) {
-                SM1_State = SM1_INIT;
             }
             break;
         default:
@@ -682,14 +679,19 @@ int TickFct_BLE_Poll(int state) {
 
     switch(SM1_State) { // State actions
         case SM1_INIT:
-        // BLUETOOTH RELATED INITILIZATION CODE
+        // BLUETOOTH RELATED INITILIZATION CODE IS IN MAIN 
+        // INIT IS FOR ORGANIZATIONAL PURPOSES PRIMARILY
+        // THIS IS TO MAKE THE SM EASIER TO FOLLOW
 
          
         break;
         case SM1_POLL:
-            led_on = ~led_on;
-
+            //Debugging LED
             // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, led_on);
+
+            //Poll to see if there are any pending changes that
+            //need to be addressed such as characteristics that 
+            //need to be written to.
 
             async_context_poll(cyw43_arch_async_context());
          
@@ -807,24 +809,12 @@ float get_current(char adc_channel)
         printf("cnt: %d\n",cnt);
         avg_current = (cumulative_sum/15000)*100;
         // printf("Raw value: 0x%03d, current: %f A\n", result, converted);
-        printf("Avg Current: %f mA\n", avg_current);
+        printf("Avg Current: %.2f mA, Power: %.2f\n", avg_current,(long)avg_current*3.8);
+        set_characteristic_current((char) avg_current);
         cumulative_sum=0;
 
     }
-    uint32_t voltage = ((uint32_t) raw * V_REF)/ ADC_RESOLUTION;
-    // printf("Voltage: %d\r\n",voltage);
-    // printf("Voltage (Hex): %x\r\n",raw);
-
-
-    uint32_t current = (long)(voltage - OFFSET_VOLTAGE) / SENSITIVITY;
-    // signed long result = (voltage - OFFSET_VOLTAGE) / SENSITIVITY;
-    // printf("voltage: %d A\r\n",voltage);
-    // printf("SENSITIVITY: %d A\r\n",SENSITIVITY);
-
-    // printf("result: %d A\r\n",result);
-    // printf("Current: %d A\r\n",current);
-
-    return result;
+        return result;
     // printf("Getting Current\n");
 }
 
