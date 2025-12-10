@@ -6,8 +6,8 @@
       "type": "lldb",
       "request": "launch",
       "args": [],
-      "cwd": "/Users/trishnguyen/Documents/GitHub/Embedded-Capstone-Group-7",
-      "program": "/Users/trishnguyen/Documents/GitHub/Embedded-Capstone-Group-7/build/Debug/outDebug"
+      "cwd": "/Users/trishnguyen/Documents/GitHub/Embedded-Capstone-Group-7/RTOS_CLASSROOM",
+      "program": "/Users/trishnguyen/Documents/GitHub/Embedded-Capstone-Group-7/RTOS_CLASSROOM/build/Debug/outDebug"
     }
   ]
 }
